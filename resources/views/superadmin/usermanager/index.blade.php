@@ -74,6 +74,16 @@
                                                     <button type="submit" class="dropdown-item text-success" style="border: none; background: none; text-align: left; width: 100%;">Activate</button>
                                                 </form>
                                             @endif
+
+                                            @if(is_null($user->email_verified_at))
+                                                <form method="POST" action="{{ route('user.verify', $user->id) }}" style="display: inline;" onsubmit="return confirm('Verify this account?')">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <button type="submit" class="dropdown-item" style="border: none; background: none; text-align: left; width: 100%;">Verify Account</button>
+                                                </form>
+                                            @else
+                                                <span class="dropdown-item text-muted">Verified</span>
+                                            @endif
                                         </div>
                                     </div>
                                 </td>
