@@ -496,6 +496,46 @@ class SuperAdminActions extends Controller
         }
     }
 
+    /** Verify a user's account by setting email_verified_at */
+    public function user_verify(User $user)
+    {
+        $authUser = Auth::user();
+
+        // Only superadmin or IT Admin can verify
+        if ($authUser->default_role !== 'superadmin' && $authUser->default_role !== 'IT Admin') {
+            return redirect()->back()->with([
+                'message' => 'Unauthorized action',
+                'alert-type' => 'error'
+            ]);
+        }
+
+        try {
+            if (!is_null($user->email_verified_at)) {
+                return redirect()->back()->with([
+                    'message' => 'User is already verified',
+                    'alert-type' => 'info'
+                ]);
+            }
+
+            $user->update(['email_verified_at' => now()]);
+
+            Activity::create([
+                'action' => 'User Verified',
+                'user_id' => $authUser->id,
+            ]);
+
+            return redirect()->back()->with([
+                'message' => 'User account verified successfully',
+                'alert-type' => 'success'
+            ]);
+        } catch (Exception $e) {
+            return redirect()->back()->with([
+                'message' => 'Failed to verify user: ' . $e->getMessage(),
+                'alert-type' => 'error'
+            ]);
+        }
+    }
+
     public function showUserUploadForm()
     {
         $authUser = Auth::user();
