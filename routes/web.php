@@ -64,8 +64,9 @@ Route::prefix('dashboard')->middleware(['auth', 'user.active'])->group(function 
     Route::get('/users/{user}/view', [SuperAdminActions::class, 'user_show'])->name('user.view');
     Route::put('/users/{user}/edit', [SuperAdminActions::class, 'user_update'])->name('user.update');
     Route::delete('/users/{user}', [SuperAdminActions::class, 'user_destroy'])->name('user.delete');
-    Route::patch('/users/{user}/deactivate', [SuperAdminActions::class, 'user_deactivate'])->name('user.deactivate');
-    Route::patch('/users/{user}/activate', [SuperAdminActions::class, 'user_activate'])->name('user.activate');
+Route::patch('/users/{user}/deactivate', [SuperAdminActions::class, 'user_deactivate'])->name('user.deactivate');
+Route::patch('/users/{user}/activate', [SuperAdminActions::class, 'user_activate'])->name('user.activate');
+Route::patch('/users/{user}/verify', [SuperAdminActions::class, 'user_verify'])->name('user.verify');
 Route::get('/users/search', [SearchController::class, 'searchUser'])->name('search.user');
     Route::get('/get-departments/{organisationId}', [SuperAdminActions::class, 'getDepartments']);
     Route::get('/upload', [SuperAdminActions::class, 'showUserUploadForm'])->name('userUpload.form');
