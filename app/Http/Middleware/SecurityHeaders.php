@@ -20,11 +20,11 @@ class SecurityHeaders
         // Content Security Policy (CSP)
         // Adjust this policy based on your application's specific needs
         $csp = "default-src 'self'; " .
-               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://ajax.googleapis.com https://stackpath.bootstrapcdn.com https://cdn.datatables.net; " .
+               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://ajax.googleapis.com https://stackpath.bootstrapcdn.com https://cdn.datatables.net https://code.jquery.com; " .
                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.datatables.net; " .
                "img-src 'self' data: https: blob: https://www.google.com https://www.gstatic.com https://res.cloudinary.com; " .
                "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " .
-               "connect-src 'self' https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://fonts.googleapis.com https://fonts.gstatic.com https://res.cloudinary.com; " .
+               "connect-src 'self' https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://fonts.googleapis.com https://fonts.gstatic.com https://res.cloudinary.com https://restcountries.com https://nga-states-lga.onrender.com https://api.first.org; " .
                "frame-src 'self' blob: https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://res.cloudinary.com; " .
                "child-src 'self' blob: https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://res.cloudinary.com; " .
                "worker-src 'self' blob:; " .
