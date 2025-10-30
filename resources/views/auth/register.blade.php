@@ -365,39 +365,90 @@
         }
     </script>
     <script>
-        //Fetch all States
-        fetch('https://nga-states-lga.onrender.com/fetch')
-            .then((res) => res.json())
-            .then((data) => {
-                var x = document.getElementById("state");
-                for (let index = 0; index < Object.keys(data).length; index++) {
-                    var option = document.createElement("option");
-                    option.text = data[index];
-                    option.value = data[index];
-                    x.add(option);
-                }
-            });
-        //Fetch Local Goverments based on selected state
-        function selectLGA(target) {
-            var state = target.value;
-            fetch('https://nga-states-lga.onrender.com/?state=' + state)
-                .then((res) => res.json())
-                .then((data) => {
-                    var x = document.getElementById("lga");
+        // Local-first Nigeria states/LGAs
+        let NIGERIA_DATA = null; // { stateName: [lga, ...], ... }
 
-                    var select = document.getElementById("lga");
-                    var length = select.options.length;
-                    for (i = length - 1; i >= 0; i--) {
-                        select.options[i] = null;
-                    }
-                    for (let index = 0; index < Object.keys(data).length; index++) {
-                        var option = document.createElement("option");
-                        option.text = data[index];
-                        option.value = data[index];
-                        x.add(option);
-                    }
-                });
+        function populateStateSelect(states) {
+            const stateSelect = document.getElementById('state');
+            stateSelect.innerHTML = '';
+            const defaultOpt = document.createElement('option');
+            defaultOpt.text = 'Select State';
+            defaultOpt.value = '';
+            stateSelect.add(defaultOpt);
+            states.forEach((name) => {
+                const option = document.createElement('option');
+                option.text = name;
+                option.value = name;
+                stateSelect.add(option);
+            });
         }
+
+        async function loadNigeriaData() {
+            try {
+                const resp = await fetch('/data/nigeria-states-lgas.json', { cache: 'no-cache' });
+                if (!resp.ok) throw new Error('Local Nigeria data not found');
+                NIGERIA_DATA = await resp.json();
+                const states = Object.keys(NIGERIA_DATA).sort((a, b) => a.localeCompare(b));
+                populateStateSelect(states);
+            } catch (e) {
+                console.warn('Local Nigeria data missing, falling back to remote:', e);
+                try {
+                    const resp2 = await fetch('https://nga-states-lga.onrender.com/fetch');
+                    if (!resp2.ok) throw new Error('Remote Nigeria states failed');
+                    const remoteStates = await resp2.json();
+                    populateStateSelect(remoteStates);
+                } catch (e2) {
+                    console.error('Failed to load Nigeria states from any source:', e2);
+                    populateStateSelect([]);
+                }
+            }
+        }
+
+        // Populate LGAs from local first, remote fallback
+        async function selectLGA(target) {
+            const state = target.value;
+            const lgaSelect = document.getElementById('lga');
+            lgaSelect.innerHTML = '';
+            const defaultOpt = document.createElement('option');
+            defaultOpt.text = 'Select Local Government Area';
+            defaultOpt.value = '';
+            lgaSelect.add(defaultOpt);
+
+            // Try local
+            if (NIGERIA_DATA && Array.isArray(NIGERIA_DATA[state]) && NIGERIA_DATA[state].length > 0) {
+                NIGERIA_DATA[state]
+                    .slice()
+                    .sort((a, b) => a.localeCompare(b))
+                    .forEach((name) => {
+                        const option = document.createElement('option');
+                        option.text = name;
+                        option.value = name;
+                        lgaSelect.add(option);
+                    });
+                return;
+            }
+
+            // Fallback to remote
+            try {
+                const resp = await fetch('https://nga-states-lga.onrender.com/?state=' + encodeURIComponent(state));
+                if (!resp.ok) throw new Error('Remote LGAs failed');
+                const remoteLGAs = await resp.json();
+                for (let index = 0; index < Object.keys(remoteLGAs).length; index++) {
+                    const option = document.createElement('option');
+                    option.text = remoteLGAs[index];
+                    option.value = remoteLGAs[index];
+                    lgaSelect.add(option);
+                }
+            } catch (err) {
+                const failOpt = document.createElement('option');
+                failOpt.text = 'Failed to load LGAs. Please retry.';
+                failOpt.value = '';
+                lgaSelect.add(failOpt);
+            }
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', loadNigeriaData);
     </script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -408,43 +459,83 @@
                 return;
             }
 
-            // Fetch countries from the API
-            fetch('https://restcountries.com/v3.1/all')
-                .then((response) => {
-                    if (!response.ok) {
-                        throw new Error('Failed to fetch countries: ' + response.statusText);
-                    }
-                    return response.json();
-                })
-                .then((data) => {
-                    // Clear existing options (if any)
-                    countryDropdown.innerHTML = '';
+            function addDefaultOption(selectEl) {
+                const defaultOption = document.createElement('option');
+                defaultOption.text = 'Select Country';
+                defaultOption.value = '';
+                selectEl.add(defaultOption);
+            }
 
-                    // Add a default option
-                    const defaultOption = document.createElement('option');
-                    defaultOption.text = 'Select Country';
-                    defaultOption.value = '';
-                    countryDropdown.add(defaultOption);
-
-                    // Sort countries alphabetically by name
-                    data.sort((a, b) => a.name.common.localeCompare(b.name.common));
-
-                    // Populate the dropdown with country names
-                    data.forEach((country) => {
-                        const option = document.createElement('option');
-                        option.text = country.name.common;
-                        option.value = country.name.common;
-                        countryDropdown.add(option);
-                    });
-                })
-                .catch((error) => {
-                    console.error('Error fetching countries:', error);
-                    // Display a user-friendly error message
-                    const errorMessage = document.createElement('div');
-                    errorMessage.textContent = 'Failed to load countries. Please try again later.';
-                    errorMessage.style.color = 'red';
-                    countryDropdown.parentElement.appendChild(errorMessage);
+            function populateCountriesFromRestCountries(items) {
+                // Sort countries alphabetically by name
+                items.sort((a, b) => a.name.common.localeCompare(b.name.common));
+                items.forEach((country) => {
+                    const option = document.createElement('option');
+                    option.text = country.name.common;
+                    option.value = country.name.common;
+                    countryDropdown.add(option);
                 });
+            }
+
+            function populateCountriesFromFirstOrg(dataObj) {
+                const names = Object.values(dataObj).map((item) => item.country).filter(Boolean);
+                names.sort((a, b) => a.localeCompare(b));
+                names.forEach((name) => {
+                    const option = document.createElement('option');
+                    option.text = name;
+                    option.value = name;
+                    countryDropdown.add(option);
+                });
+            }
+
+            async function loadCountries() {
+                try {
+                    // Try local first
+                    const localResp = await fetch('/data/countries.json', { cache: 'no-cache' });
+                    if (localResp.ok) {
+                        const local = await localResp.json();
+                        countryDropdown.innerHTML = '';
+                        addDefaultOption(countryDropdown);
+                        local
+                            .slice()
+                            .sort((a, b) => a.localeCompare(b))
+                            .forEach((name) => {
+                                const option = document.createElement('option');
+                                option.text = name;
+                                option.value = name;
+                                countryDropdown.add(option);
+                            });
+                        return;
+                    }
+
+                    // Then RestCountries
+                    const resp = await fetch('https://restcountries.com/v3.1/all');
+                    if (!resp.ok) throw new Error('RestCountries failed: ' + resp.status + ' ' + resp.statusText);
+                    const data = await resp.json();
+                    countryDropdown.innerHTML = '';
+                    addDefaultOption(countryDropdown);
+                    populateCountriesFromRestCountries(data);
+                } catch (err1) {
+                    console.warn('RestCountries fetch failed, trying fallback:', err1);
+                    try {
+                        // Fallback to FIRST.org countries API
+                        const resp2 = await fetch('https://api.first.org/data/v1/countries');
+                        if (!resp2.ok) throw new Error('FIRST.org failed: ' + resp2.status + ' ' + resp2.statusText);
+                        const json = await resp2.json();
+                        countryDropdown.innerHTML = '';
+                        addDefaultOption(countryDropdown);
+                        populateCountriesFromFirstOrg(json.data || {});
+                    } catch (err2) {
+                        console.error('Error fetching countries:', err2);
+                        const errorMessage = document.createElement('div');
+                        errorMessage.textContent = 'Failed to load countries. Please try again later.';
+                        errorMessage.style.color = 'red';
+                        countryDropdown.parentElement.appendChild(errorMessage);
+                    }
+                }
+            }
+
+            loadCountries();
         });
     </script>
     <script>
