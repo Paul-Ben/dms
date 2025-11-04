@@ -153,17 +153,46 @@ class StampHelper
             return null;
         }
 
-        $path = ltrim($parsedUrl['path'], '/'); // e.g. image/upload/v1234/folder/file.pdf
+        $path = ltrim($parsedUrl['path'], '/'); // e.g. demo/image/upload/v1234/folder/file.pdf
 
-        // Remove version segment /v1234/
-        $path = preg_replace('#/v[0-9]+/#', '/', $path);
+        // Remove leading cloud name segment (e.g. demo/)
+        $path = preg_replace('#^[^/]+/#', '', $path);
 
-        // Remove "image/upload/" or "raw/upload/" or similar Cloudinary resource type folders prefix
+        // Remove resource_type/upload prefix (e.g. image/upload/ or raw/upload/)
         $path = preg_replace('#^(image|raw|video)/upload/#', '', $path);
+
+        // Remove version segment which may appear at start or within path
+        // e.g. v1234/folder/file.pdf or folder/v1234/file.pdf
+        $path = preg_replace('#^v[0-9]+/#', '', $path); // leading version
+        $path = preg_replace('#/v[0-9]+/#', '/', $path); // mid-path version
 
         // Remove file extension like .pdf
         $publicId = preg_replace('#\.[^.]+$#', '', $path);
 
         return $publicId;
+    }
+
+    /**
+     * Extract file extension from Cloudinary URL path, e.g. pdf, jpg
+     */
+    public static function extractExtensionFromCloudinaryUrl(string $url): ?string
+    {
+        $parsedUrl = parse_url($url);
+        if (!isset($parsedUrl['path'])) {
+            return null;
+        }
+        $path = ltrim($parsedUrl['path'], '/');
+        // Remove cloud name if present
+        $path = preg_replace('#^[^/]+/#', '', $path);
+        // Remove resource_type/upload prefix
+        $path = preg_replace('#^(image|raw|video)/upload/#', '', $path);
+        // Strip version segments
+        $path = preg_replace('#^v[0-9]+/#', '', $path);
+        $path = preg_replace('#/v[0-9]+/#', '/', $path);
+        // Capture extension
+        if (preg_match('#\.([^.]+)$#', $path, $m)) {
+            return strtolower($m[1]);
+        }
+        return null;
     }
 }
