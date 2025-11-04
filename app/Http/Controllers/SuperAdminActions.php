@@ -2839,4 +2839,269 @@ class SuperAdminActions extends Controller
     //         'Content-Disposition' => 'attachment; filename="receipt.pdf"',
     //     ]);
     // }
+    /**
+     * Show Superadmin-only tenant cleanup form
+     */
+    public function tenantCleanupForm()
+    {
+        $authUser = Auth::user();
+        if ($authUser->default_role !== 'superadmin') {
+            return redirect()->route('dashboard')->with([
+                'message' => 'Unauthorized: Superadmin only.',
+                'alert-type' => 'error'
+            ]);
+        }
+
+        $userdetails = UserDetails::where('user_id', $authUser->id)->first();
+        $userTenant = Tenant::where('id', optional($userdetails)->tenant_id)->first();
+        $tenants = Tenant::orderBy('name')->get(['id', 'name']);
+
+        return view('superadmin.cleanup.index', compact('authUser', 'userTenant', 'tenants'));
+    }
+
+    /**
+     * Execute tenant-specific cleanup in a transaction, removing file_movements,
+     * documents, document_recipients and deleting Cloudinary files for documents.
+     */
+    public function tenantCleanupRun(Request $request)
+    {
+        $authUser = Auth::user();
+        if ($authUser->default_role !== 'superadmin') {
+            return redirect()->route('dashboard')->with([
+                'message' => 'Unauthorized: Superadmin only.',
+                'alert-type' => 'error'
+            ]);
+        }
+
+        $request->validate([
+            'tenant_id' => 'required|exists:tenants,id',
+        ]);
+
+        $tenantId = (int) $request->input('tenant_id');
+
+        $stats = [
+            'file_movements_deleted' => 0,
+            'documents_deleted' => 0,
+            'document_recipients_deleted' => 0,
+            'activities_deleted' => 0,
+            'cloudinary_deleted' => 0,
+            'cloudinary_failed' => 0,
+        ];
+
+        try {
+            DB::transaction(function () use ($tenantId, &$stats) {
+                // Identify tenant user ids via user_details
+                $tenantUserIds = UserDetails::where('tenant_id', $tenantId)->pluck('user_id');
+
+                if ($tenantUserIds->isEmpty()) {
+                    return; // Nothing to clean for this tenant
+                }
+
+                // Collect documents uploaded by tenant users
+                $tenantDocuments = Document::whereIn('uploaded_by', $tenantUserIds)->get(['id', 'file_path']);
+                $tenantDocumentIds = $tenantDocuments->pluck('id');
+
+                // Delete FileMovements for tenant users or tenant documents
+                FileMovement::whereIn('sender_id', $tenantUserIds)
+                    ->orWhereIn('recipient_id', $tenantUserIds)
+                    ->orWhereIn('document_id', $tenantDocumentIds)
+                    ->chunkById(500, function ($chunk) use (&$stats) {
+                        $ids = $chunk->pluck('id');
+                        $deleted = FileMovement::whereIn('id', $ids)->delete();
+                        $stats['file_movements_deleted'] += $deleted;
+                    });
+
+                // Defensive cleanup for any remaining document_recipients involving tenant users
+                DocumentRecipient::whereIn('recipient_id', $tenantUserIds)
+                    ->orWhereIn('user_id', $tenantUserIds)
+                    ->chunkById(500, function ($chunk) use (&$stats) {
+                        $ids = $chunk->pluck('id');
+                        $deleted = DocumentRecipient::whereIn('id', $ids)->delete();
+                        $stats['document_recipients_deleted'] += $deleted;
+                    });
+
+                // Delete activities for all users in the selected tenant
+                Activity::whereIn('user_id', $tenantUserIds)
+                    ->chunkById(500, function ($chunk) use (&$stats) {
+                        $ids = $chunk->pluck('id');
+                        $deleted = Activity::whereIn('id', $ids)->delete();
+                        $stats['activities_deleted'] += $deleted;
+                    });
+
+                // Cloudinary deletion intentionally omitted per request. Only DB records are initialized.
+
+                // Delete Documents uploaded by tenant users
+                Document::whereIn('id', $tenantDocumentIds)
+                    ->chunkById(500, function ($chunk) use (&$stats) {
+                        $ids = $chunk->pluck('id');
+                        $deleted = Document::whereIn('id', $ids)->delete();
+                        $stats['documents_deleted'] += $deleted;
+                    });
+            });
+        } catch (\Throwable $e) {
+            Log::error('Tenant cleanup failed for tenant_id ' . $tenantId . ': ' . $e->getMessage());
+            return redirect()->back()->with([
+                'message' => 'Cleanup failed: ' . $e->getMessage(),
+                'alert-type' => 'error'
+            ]);
+        }
+
+        return redirect()->back()->with([
+            'message' => 'Cleanup completed successfully. '
+                . 'FileMovements: ' . $stats['file_movements_deleted']
+                . ', Documents: ' . $stats['documents_deleted']
+                . ', DocumentRecipients: ' . $stats['document_recipients_deleted']
+                . ', Activities: ' . $stats['activities_deleted'],
+            'alert-type' => 'success'
+        ]);
+    }
+
+    /**
+     * Superadmin-only Tenant Usage Tracking view
+     * Provides daily/monthly sent/received counts for tenant users within a date range,
+     * user counts, recent transactions, and summary totals.
+     */
+    public function tenantUsage(Request $request)
+    {
+        $authUser = Auth::user();
+        if ($authUser->default_role !== 'superadmin') {
+            return redirect()->route('dashboard')->with([
+                'message' => 'Unauthorized: Superadmin only.',
+                'alert-type' => 'error'
+            ]);
+        }
+
+        $userdetails = UserDetails::where('user_id', $authUser->id)->first();
+        $userTenant = Tenant::where('id', optional($userdetails)->tenant_id)->first();
+        $tenants = Tenant::orderBy('name')->get(['id', 'name']);
+
+        $request->validate([
+            'tenant_id' => 'nullable|exists:tenants,id',
+            'from' => 'nullable|date',
+            'to' => 'nullable|date',
+        ]);
+
+        $selectedTenantId = $request->input('tenant_id');
+        $from = $request->filled('from') ? Carbon::parse($request->input('from'))->startOfDay() : Carbon::now()->subDays(30)->startOfDay();
+        $to = $request->filled('to') ? Carbon::parse($request->input('to'))->endOfDay() : Carbon::now()->endOfDay();
+
+        $dailySeries = [
+            'labels' => [],
+            'sent' => [],
+            'received' => [],
+        ];
+        $monthlySeries = [
+            'labels' => [],
+            'sent' => [],
+            'received' => [],
+        ];
+        $userCount = 0;
+        $totals = [
+            'sent' => 0,
+            'received' => 0,
+        ];
+        $recent = collect();
+
+        if ($selectedTenantId) {
+            $tenantUserIds = UserDetails::where('tenant_id', $selectedTenantId)->pluck('user_id');
+
+            $userCount = $tenantUserIds->count();
+
+            // Totals
+            $totals['sent'] = DB::table('file_movements')
+                ->whereIn('sender_id', $tenantUserIds)
+                ->whereBetween('created_at', [$from, $to])
+                ->count();
+            $totals['received'] = DB::table('file_movements')
+                ->whereIn('recipient_id', $tenantUserIds)
+                ->whereBetween('created_at', [$from, $to])
+                ->count();
+
+            // Daily aggregates
+            $dailySent = DB::table('file_movements')
+                ->selectRaw('DATE(created_at) as day, COUNT(*) as cnt')
+                ->whereIn('sender_id', $tenantUserIds)
+                ->whereBetween('created_at', [$from, $to])
+                ->groupBy('day')
+                ->orderBy('day')
+                ->get()
+                ->keyBy('day');
+            $dailyReceived = DB::table('file_movements')
+                ->selectRaw('DATE(created_at) as day, COUNT(*) as cnt')
+                ->whereIn('recipient_id', $tenantUserIds)
+                ->whereBetween('created_at', [$from, $to])
+                ->groupBy('day')
+                ->orderBy('day')
+                ->get()
+                ->keyBy('day');
+
+            // Build continuous daily series from from..to
+            $cursor = $from->copy();
+            while ($cursor->lte($to)) {
+                $day = $cursor->toDateString();
+                $dailySeries['labels'][] = $day;
+                $dailySeries['sent'][] = (int) (optional($dailySent->get($day))->cnt ?? 0);
+                $dailySeries['received'][] = (int) (optional($dailyReceived->get($day))->cnt ?? 0);
+                $cursor->addDay();
+            }
+
+            // Monthly aggregates (YYYY-MM)
+            $monthlySent = DB::table('file_movements')
+                ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as cnt")
+                ->whereIn('sender_id', $tenantUserIds)
+                ->whereBetween('created_at', [$from, $to])
+                ->groupBy('month')
+                ->orderBy('month')
+                ->get()
+                ->keyBy('month');
+            $monthlyReceived = DB::table('file_movements')
+                ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as cnt")
+                ->whereIn('recipient_id', $tenantUserIds)
+                ->whereBetween('created_at', [$from, $to])
+                ->groupBy('month')
+                ->orderBy('month')
+                ->get()
+                ->keyBy('month');
+
+            // Build monthly series across months in range
+            $monthCursor = $from->copy()->startOfMonth();
+            while ($monthCursor->lte($to)) {
+                $monthKey = $monthCursor->format('Y-m');
+                $monthlySeries['labels'][] = $monthKey;
+                $monthlySeries['sent'][] = (int) (optional($monthlySent->get($monthKey))->cnt ?? 0);
+                $monthlySeries['received'][] = (int) (optional($monthlyReceived->get($monthKey))->cnt ?? 0);
+                $monthCursor->addMonth();
+            }
+
+            // Recent transactions (limit 50)
+            $recent = FileMovement::with([
+                    'document:id,title',
+                    'sender:id,name',
+                    'recipient:id,name'
+                ])
+                ->where(function ($q) use ($tenantUserIds) {
+                    $q->whereIn('sender_id', $tenantUserIds)
+                      ->orWhereIn('recipient_id', $tenantUserIds);
+                })
+                ->whereBetween('created_at', [$from, $to])
+                ->orderBy('created_at', 'desc')
+                ->limit(50)
+                ->get();
+        }
+
+        return view('superadmin.usage.index', [
+            'authUser' => $authUser,
+            'userTenant' => $userTenant,
+            'tenants' => $tenants,
+            'selectedTenantId' => $selectedTenantId,
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'userCount' => $userCount,
+            'totals' => $totals,
+            'dailySeries' => $dailySeries,
+            'monthlySeries' => $monthlySeries,
+            'recent' => $recent,
+        ]);
+    }
+
 }
