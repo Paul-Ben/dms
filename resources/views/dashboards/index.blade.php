@@ -288,6 +288,12 @@
                             <a href="{{ route('backup.index') }}"
                                 class="nav-item nav-link {{ request()->routeIs('users.index') ? 'active' : '' }}"><i
                                     class="fa fa-user-circle me-2"></i>Backups</a>
+                            <a href="{{ route('superadmin.tenant.usage') }}"
+                                class="nav-item nav-link {{ request()->routeIs('superadmin.tenant.usage') ? 'active' : '' }}"><i
+                                    class="fa fa-chart-line me-2"></i>Tenant Usage</a>
+                            <a href="{{ route('superadmin.tenant.cleanup') }}"
+                                class="nav-item nav-link {{ request()->routeIs('superadmin.tenant.cleanup') ? 'active' : '' }}"><i
+                                    class="fa fa-trash me-2"></i>Tenant Cleanup</a>
                         @endrole
                     </div>
             </nav>
