@@ -80,6 +80,13 @@ Route::get('/users/search', [SearchController::class, 'searchUser'])->name('sear
 
     Route::get('/superadmin/visitor-activities', [VisitorActivityController::class, 'index'])->name('superadmin.visitor.activities');
 
+    // Superadmin: Tenant Cleanup
+    Route::get('/superadmin/tenant-cleanup', [SuperAdminActions::class, 'tenantCleanupForm'])->name('superadmin.tenant.cleanup');
+    Route::post('/superadmin/tenant-cleanup', [SuperAdminActions::class, 'tenantCleanupRun'])->name('superadmin.tenant.cleanup.run');
+
+    // Superadmin: Tenant Usage Tracking
+    Route::get('/superadmin/tenant-usage', [SuperAdminActions::class, 'tenantUsage'])->name('superadmin.tenant.usage');
+
     
     /**Role management related links */
     Route::get('/roles/index', [SuperAdminActions::class, 'roleIndex'])->name('role.index');
