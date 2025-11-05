@@ -3104,4 +3104,93 @@ class SuperAdminActions extends Controller
         ]);
     }
 
+    /**
+     * Export tenant usage report as CSV for a selected tenant and date range.
+     * Includes daily sent/received counts to balance detail and size.
+     */
+    public function tenantUsageExport(Request $request)
+    {
+        $authUser = Auth::user();
+        if (!$authUser || $authUser->default_role !== 'superadmin') {
+            return redirect()->route('dashboard')->with([
+                'message' => 'Unauthorized: Superadmin only.',
+                'alert-type' => 'error'
+            ]);
+        }
+
+        $validated = $request->validate([
+            'tenant_id' => 'required|exists:tenants,id',
+            'from' => 'required|date',
+            'to' => 'required|date',
+        ]);
+
+        $tenantId = (int) $validated['tenant_id'];
+        $from = Carbon::parse($validated['from'])->startOfDay();
+        $to = Carbon::parse($validated['to'])->endOfDay();
+
+        if ($from->gt($to)) {
+            return redirect()->back()->with([
+                'message' => 'Invalid date range: From must be before To.',
+                'alert-type' => 'error'
+            ]);
+        }
+
+        $tenant = Tenant::find($tenantId);
+        $tenantUserIds = UserDetails::where('tenant_id', $tenantId)->pluck('user_id');
+        $userCount = $tenantUserIds->count();
+
+        // Aggregate daily counts for sent and received within date range
+        $dailySent = DB::table('file_movements')
+            ->selectRaw('DATE(created_at) as day, COUNT(*) as cnt')
+            ->whereIn('sender_id', $tenantUserIds)
+            ->whereBetween('created_at', [$from, $to])
+            ->groupBy('day')
+            ->orderBy('day')
+            ->get()
+            ->keyBy('day');
+
+        $dailyReceived = DB::table('file_movements')
+            ->selectRaw('DATE(created_at) as day, COUNT(*) as cnt')
+            ->whereIn('recipient_id', $tenantUserIds)
+            ->whereBetween('created_at', [$from, $to])
+            ->groupBy('day')
+            ->orderBy('day')
+            ->get()
+            ->keyBy('day');
+
+        $fileName = sprintf(
+            'tenant-usage-%s-%s_to_%s.csv',
+            Str::slug($tenant->name ?? 'tenant'),
+            $from->toDateString(),
+            $to->toDateString()
+        );
+
+        // Stream CSV to handle large ranges efficiently
+        return Response::streamDownload(function () use ($tenant, $from, $to, $userCount, $dailySent, $dailyReceived) {
+            $out = fopen('php://output', 'w');
+            // Metadata header rows
+            fputcsv($out, ['Tenant', $tenant->name ?? 'Unknown']);
+            fputcsv($out, ['From', $from->toDateString()]);
+            fputcsv($out, ['To', $to->toDateString()]);
+            fputcsv($out, ['Users', $userCount]);
+            // Blank line
+            fputcsv($out, []);
+            // Data header
+            fputcsv($out, ['Date', 'Files Sent', 'Files Received']);
+
+            $cursor = $from->copy();
+            while ($cursor->lte($to)) {
+                $day = $cursor->toDateString();
+                $sent = (int) (optional($dailySent->get($day))->cnt ?? 0);
+                $received = (int) (optional($dailyReceived->get($day))->cnt ?? 0);
+                fputcsv($out, [$day, $sent, $received]);
+                $cursor->addDay();
+            }
+
+            fclose($out);
+        }, $fileName, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
 }
