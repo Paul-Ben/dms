@@ -76,7 +76,7 @@
         <div class="content">
             <p>Dear {{ $senderName }},</p>
             <p>
-                We are pleased to inform you that your document <strong>{{ $documentName }}</strong> 
+                We are pleased to inform you that your document <strong>{{ $documentName }}@if(isset($documentId) && $documentId !== '') ({{ $documentId }}) @endif</strong> 
                 has been successfully sent to <strong>{{ $userTenant.", ".$userDepartment }}</strong>. 
             </p>
             <p>
