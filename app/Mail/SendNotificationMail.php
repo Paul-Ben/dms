@@ -21,6 +21,8 @@ class SendNotificationMail extends Mailable
 
     public $appName;
 
+    public $documentId;
+
     public $userDepartment;
 
     public $userTenant;
@@ -28,13 +30,14 @@ class SendNotificationMail extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct($senderName, $receiverName, $documentName, $appName, $userDepartment, $userTenant)
+    public function __construct($senderName, $receiverName, $documentName, $appName, $documentId = null, $userDepartment = null, $userTenant = null)
     {
         //
         $this->senderName = $senderName;
         $this->receiverName = $receiverName;
         $this->documentName = $documentName;
         $this->appName = $appName;
+        $this->documentId = $documentId;
         $this->userDepartment = $userDepartment;
         $this->userTenant = $userTenant;
     }
@@ -60,6 +63,7 @@ class SendNotificationMail extends Mailable
                 'senderName' => $this->senderName,
                 'receiverName' => $this->receiverName,
                 'documentName' => $this->documentName,
+                'documentId' => $this->documentId,
                 'appName' => $this->appName,
                 'userDepartment' => $this->userDepartment,
                 'userTenant'=> $this->userTenant
