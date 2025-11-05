@@ -198,3 +198,27 @@ Route::prefix('dashboard')->middleware(['auth', 'user.active'])->group(function 
 });
 
 require __DIR__ . '/auth.php';
+
+// Local-only email preview routes for development/testing
+if (app()->environment('local')) {
+    Route::get('/_preview/email/receive', function () {
+        return new \App\Mail\ReceiveNotificationMail(
+            'Sender Example',
+            'Receiver Example',
+            'Test Document',
+            'DOC-123',
+            config('app.name')
+        );
+    });
+    Route::get('/_preview/email/send', function () {
+        return new \App\Mail\SendNotificationMail(
+            'Sender Example',
+            'Receiver Example',
+            'Project Plan',
+            config('app.name'),
+            '12345',
+            'Planning Department',
+            'Benue State ICT'
+        );
+    });
+}
