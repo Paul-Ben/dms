@@ -86,6 +86,8 @@ Route::get('/users/search', [SearchController::class, 'searchUser'])->name('sear
 
     // Superadmin: Tenant Usage Tracking
     Route::get('/superadmin/tenant-usage', [SuperAdminActions::class, 'tenantUsage'])->name('superadmin.tenant.usage');
+    // Superadmin: Tenant Usage Export (CSV)
+    Route::get('/superadmin/tenant-usage/export', [SuperAdminActions::class, 'tenantUsageExport'])->name('superadmin.tenant.usage.export');
 
     
     /**Role management related links */
@@ -200,6 +202,30 @@ Route::prefix('dashboard')->middleware(['auth', 'user.active'])->group(function 
 require __DIR__ . '/auth.php';
 
 // Local-only email preview routes for development/testing
+// Local-only preview of Superadmin Usage view
+if (env('APP_ENV') !== 'production') {
+    Route::get('/_preview/superadmin/usage', function () {
+        // Minimal stub data to render the view structure
+        $authUser = (object) ['name' => 'Superadmin'];
+        $userTenant = null;
+        $tenants = collect([
+            (object) ['id' => 1, 'name' => 'Demo Tenant A'],
+            (object) ['id' => 2, 'name' => 'Demo Tenant B'],
+        ]);
+        $selectedTenantId = 1;
+        $from = now()->subDays(14)->toDateString();
+        $to = now()->toDateString();
+        $userCount = 42;
+        $totals = ['sent' => 120, 'received' => 98];
+        $dailySeries = ['labels' => [], 'sent' => [], 'received' => []];
+        $monthlySeries = ['labels' => ['2025-09','2025-10'], 'sent' => [300, 280], 'received' => [250, 260]];
+        $recent = collect();
+
+        return view('superadmin.usage.index', compact(
+            'authUser','userTenant','tenants','selectedTenantId','from','to','userCount','totals','dailySeries','monthlySeries','recent'
+        ));
+    });
+}
 if (app()->environment('local')) {
     Route::get('/_preview/email/receive', function () {
         return new \App\Mail\ReceiveNotificationMail(
