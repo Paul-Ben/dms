@@ -34,7 +34,16 @@
                                 <input type="date" id="to" name="to" value="{{ $to }}" class="form-control" />
                             </div>
                             <div class="col-sm-12 col-xl-2 d-flex align-items-end mb-3">
-                                <button type="submit" class="btn btn-primary w-100">Apply</button>
+                                <div class="d-grid gap-2 w-100">
+                                    <button type="submit" class="btn btn-primary">Apply</button>
+                                    @if($selectedTenantId)
+                                        <a href="{{ route('superadmin.tenant.usage.export', ['tenant_id' => $selectedTenantId, 'from' => $from, 'to' => $to]) }}" class="btn btn-outline-secondary" id="exportBtn">
+                                            <i class="fa fa-download me-2"></i>Export CSV
+                                        </a>
+                                    @else
+                                        <button type="button" class="btn btn-outline-secondary" disabled title="Select tenant and date range to export">Export CSV</button>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     </form>
