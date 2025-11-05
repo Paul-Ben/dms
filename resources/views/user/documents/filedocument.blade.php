@@ -76,7 +76,7 @@
                                         value="{{ Auth::user()->tenant_id }}" placeholder="document number" hidden>
                                 </div>
                                 <div class="col-sm-12 col-xl-6 mb-3">
-                                    <label for="exampleInputEmail1" class="form-label">Upload Document, <span>PDF file allowed.</span></label>
+                                    <label for="exampleInputEmail1" class="form-label">Upload Document, <span>PDF file 10MB allowed.</span></label>
                                     <input type="file" name="file_path" id="fileInput" class="form-control" 
                                         accept=".pdf">
                                 </div>
@@ -101,7 +101,7 @@
                             </div>
                             <div style="text-align: center;">
                                 <button type="submit" class="btn btn-primary">Submit</button>
-                                <button type="reset" class="btn btn-secondary">Reset</button>
+                                {{-- <button type="reset" class="btn btn-secondary">Reset</button> --}}
                             </div>
                         </form>
                     </div>
