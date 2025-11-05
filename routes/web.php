@@ -197,6 +197,17 @@ Route::prefix('dashboard')->middleware(['auth', 'user.active'])->group(function 
     Route::get('/superadmin/backup', [BackupLogController::class, 'index'])->name('backup.index');
     Route::get('/superadmin/{backup}/download', [BackupLogController::class, 'download'])->name('backup.download');
     Route::delete('/superadmin/{backup}/delete-backup', [BackupLogController::class, 'destroy'])->name('backup.delete');
+
+    // Spatie database backup management
+    Route::post('/superadmin/backups/run', [BackupLogController::class, 'runDatabaseBackup'])->name('superadmin.backups.run');
+    Route::post('/superadmin/backups/clean', [BackupLogController::class, 'cleanDatabaseBackups'])->name('superadmin.backups.clean');
+    Route::post('/superadmin/backups/monitor', [BackupLogController::class, 'monitorBackups'])->name('superadmin.backups.monitor');
+    Route::get('/superadmin/backups/{disk}/download/{path}', [BackupLogController::class, 'downloadDatabaseBackup'])
+        ->where('path', '.*')
+        ->name('superadmin.backups.download');
+    Route::delete('/superadmin/backups/{disk}/delete/{path}', [BackupLogController::class, 'deleteDatabaseBackup'])
+        ->where('path', '.*')
+        ->name('superadmin.backups.delete');
 });
 
 require __DIR__ . '/auth.php';
@@ -246,5 +257,25 @@ if (app()->environment('local')) {
             'Planning Department',
             'Benue State ICT'
         );
+    });
+    Route::get('/_preview/superadmin/backups', function () {
+        $authUser = (object) ['name' => 'Superadmin', 'default_role' => 'superadmin'];
+        $userTenant = null;
+        $backups = collect();
+        $spatieBackups = [
+            [
+                'disk' => 'local',
+                'path' => 'dummy/dms-2025-10-01-020000.zip',
+                'filename' => 'dms-2025-10-01-020000.zip',
+                'size' => 1024 * 1024 * 10,
+                'last_modified' => now()->subDays(5)->getTimestamp(),
+            ],
+        ];
+        return view('superadmin.backups', compact('authUser','userTenant','backups','spatieBackups'));
+    });
+    Route::get('/_preview/user/sent', function () {
+        $sent_documents = collect();
+        $mda = null;
+        return view('user.documents.sent', compact('sent_documents','mda'));
     });
 }
