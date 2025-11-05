@@ -607,7 +607,13 @@ class SuperAdminAPIController extends Controller
         $appName = config('app.name');
 
         try {
-            Mail::to(Auth::user()->email)->send(new SendNotificationMail($senderName, $receiverName,  $documentName, $appName));
+            Mail::to(Auth::user()->email)->send(new SendNotificationMail(
+                $senderName,
+                $receiverName,
+                $documentName,
+                $appName,
+                $documentId
+            ));
             Mail::to(User::find($document->recipient_id)?->email)->send(new ReceiveNotificationMail($senderName, $receiverName, $documentName, $documentId, $appName));
         } catch (\Exception $e) {
             Log::error('Failed to send Document notification');
