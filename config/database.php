@@ -61,6 +61,18 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+            // Spatie db-dumper configuration for mysqldump
+            'dump' => [
+                // Adjust this for your environment. macOS Homebrew path shown by default.
+                // Linux servers commonly use '/usr/bin'.
+                'dump_binary_path' => env('DB_DUMP_BINARY_PATH', '/opt/homebrew/opt/mysql-client/bin'),
+                'useSingleTransaction' => true,
+                'timeout' => 300,
+                // Example: exclude volatile tables from dumps
+                // 'excludeTables' => ['jobs', 'failed_jobs', 'sessions'],
+                // Add extra options if needed, e.g. '--no-tablespaces'
+                // 'addExtraOption' => '--no-tablespaces',
+            ],
         ],
 
         'pgsql' => [

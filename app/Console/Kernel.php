@@ -20,6 +20,18 @@ class Kernel extends ConsoleKernel
         $schedule->command('backup:weekly-incremental')
             ->weeklyOn(0, '2:00')
             ->timezone(config('app.timezone'));
+
+        // Spatie backup cleanup: daily at 3:30 AM
+        $schedule->command('backup:clean')
+            ->dailyAt('3:30')
+            ->timezone(config('app.timezone'))
+            ->withoutOverlapping();
+
+        // Spatie backup monitor health: every morning at 8:00 AM
+        $schedule->command('backup:monitor')
+            ->dailyAt('8:00')
+            ->timezone(config('app.timezone'))
+            ->withoutOverlapping();
     }
 
     /**
