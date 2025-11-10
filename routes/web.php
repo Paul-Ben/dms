@@ -214,6 +214,10 @@ Route::prefix('dashboard')->middleware(['auth', 'user.active'])->group(function 
     // Spatie database backup management
     Route::post('/superadmin/backups/run', [BackupLogController::class, 'runDatabaseBackup'])->name('superadmin.backups.run');
     Route::post('/superadmin/backups/clean', [BackupLogController::class, 'cleanDatabaseBackups'])->name('superadmin.backups.clean');
+    
+    // Async triggers for custom backups (time-restricted)
+    Route::post('/superadmin/backups/visitor-run', [BackupLogController::class, 'runVisitorActivityBackup'])->name('superadmin.backups.visitor');
+    Route::post('/superadmin/backups/weekly-incremental', [BackupLogController::class, 'runWeeklyIncrementalBackup'])->name('superadmin.backups.weekly_incremental');
     Route::post('/superadmin/backups/monitor', [BackupLogController::class, 'monitorBackups'])->name('superadmin.backups.monitor');
     Route::get('/superadmin/backups/{disk}/download/{path}', [BackupLogController::class, 'downloadDatabaseBackup'])
         ->where('path', '.*')
