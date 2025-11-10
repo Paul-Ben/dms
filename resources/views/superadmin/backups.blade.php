@@ -1,7 +1,7 @@
 @extends('dashboards.index')
 @section('content')
     <!-- Actions Start -->
-    <div class="container-fluid pt-4 px-4">
+    {{-- <div class="container-fluid pt-4 px-4">
         <div class="col-12">
             <div class="bg-light rounded h-100 p-4">
                 <div class="d-flex align-items-center justify-content-between mb-3">
@@ -91,7 +91,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> --}}
     <!-- Actions End -->
 
     <!-- Table Start -->
@@ -99,11 +99,26 @@
         <div class="bg-light text-center rounded p-4">
             <div class="d-flex align-items-center justify-content-between mb-4">
                 <h6 class="mb-0">Visitor Activity CSV Backups</h6>
-                <div>
+                <div class="d-flex gap-2 align-items-center">
                     {{-- <a class="btn btn-sm btn-primary" href="{{ route('visitor.activity.create') }}"><i class="fa fa-plus me-2"></i>Add Visitor Activity</a> --}}
                     <a class="btn btn-sm btn-primary" href="{{ url()->previous() }}"><i
                             class="fa fa-arrow-left me-2"></i>Back</a>
+                    <form action="{{ route('superadmin.backups.visitor') }}" method="POST">
+                        @csrf
+                        <button type="submit" class="btn btn-sm btn-success" @if(isset($actionsAllowedNow) && !$actionsAllowedNow) disabled @endif>
+                            <i class="fa fa-save me-2"></i>Run Visitor Backup
+                        </button>
+                    </form>
+                    <form action="{{ route('superadmin.backups.weekly_incremental') }}" method="POST">
+                        @csrf
+                        <button type="submit" class="btn btn-sm btn-outline-success" @if(isset($actionsAllowedNow) && !$actionsAllowedNow) disabled @endif>
+                            <i class="fa fa-calendar-week me-2"></i>Run Weekly Incremental
+                        </button>
+                    </form>
                 </div>
+            </div>
+            <div class="text-start mb-3">
+                <small class="text-muted">Allowed time window: 12:00 AM–4:00 AM (server timezone). @if(isset($actionsAllowedNow) && !$actionsAllowedNow) Next window starts at {{ $nextWindowFormatted }}. @endif</small>
             </div>
             <div class="table-responsive">
                 <table id="BackupsTable" class="table text-start align-middle table-bordered table-hover mb-0">
