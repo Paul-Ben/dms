@@ -46,7 +46,17 @@ class SuperAdminActions extends Controller
 {
     public function __construct()
     {
-        $this->middleware('auth');
+        // In local/testing, allow dev helper methods without auth
+        if (app()->environment(['local', 'testing'])) {
+            $this->middleware('auth')->except([
+                'devSubmitFileDocument',
+                'devCompletePayment',
+                'devTestPaymentInit',
+                'devLastReference',
+            ]);
+        } else {
+            $this->middleware('auth');
+        }
     }
 
 
@@ -1171,6 +1181,7 @@ class SuperAdminActions extends Controller
 
     public function user_store_file_document(Request $request)
     {
+       
         $request->validate([
             'title' => 'required|string|max:255',
             'document_number' => 'required|string|max:255',
@@ -1188,23 +1199,19 @@ class SuperAdminActions extends Controller
             $filePath = $request->file('file_path');
             $pdf = new Fpdi();
             $pageCount = $pdf->setSourceFile($filePath->getPathname());
-            // $filename = time() . '_' . $filePath->getClientOriginalName();
-            // $file_path = $filePath->storeAs('documents/users/' . $uploadedBy, $filename, 'public');
-            // $file = $request->merge(['file_path' => $filename]);
-
+            // Defer Cloudinary upload until after successful payment: store temp file locally
+            $filename = time() . '_' . $filePath->getClientOriginalName();
+            $relativeTempPath = 'temp_uploads/' . $tenantId . '/' . $uploadedBy;
             try {
-                $cloudinary = new CloudinaryHelper();
-                $folder = 'edms_documents/' . $tenantId . '/' . $uploadedBy;
-
-                // Upload file - note that $file->getRealPath() or $file->getPathname() (both valid locally)
-                $result = $cloudinary->upload($filePath, $folder);
-            }catch (Exception $e) {
-                Log::error('Document upload error: ' . $e->getMessage());
-
-                return [
-                    'status' => 'error',
-                    'errors' => ['file_path' => $e->getMessage()]
-                ];
+                Storage::disk('local')->makeDirectory($relativeTempPath);
+                // Use UploadedFile::storeAs to save into local disk
+                $filePath->storeAs($relativeTempPath, $filename, 'local');
+            } catch (Exception $e) {
+                Log::error('Temporary file storage error: ' . $e->getMessage());
+                return redirect()->back()->with([
+                    'message' => 'Failed to store file temporarily: ' . $e->getMessage(),
+                    'alert-type' => 'error',
+                ]);
             }
         }
 
@@ -1216,8 +1223,8 @@ class SuperAdminActions extends Controller
         $documentHold = DocumentHold::create([
             'title' => $request->title,
             'docuent_number' => $request->document_number,
-            // 'file_path' => 'documents/users/' . $uploadedBy . '/' . $filename,
-            'file_path' => $result['secure_url'],
+            // Store relative temp path; upload to Cloudinary on successful payment
+            'file_path' => $relativeTempPath . '/' . $filename,
             'uploaded_by' => Auth::user()->id,
             'status' => $request->status ?? 'pending',
             'description' => $request->description,
@@ -1232,20 +1239,50 @@ class SuperAdminActions extends Controller
 
         try {
 
-            $response = Http::accept('application/json')->withHeaders([
-                'authorization' => env('CREDO_PUBLIC_KEY'),
-                'content_type' => "Content-Type: application/json",
-            ])->post(env("CREDO_URL") . "/transaction/initialize", [
+            $payload = [
                 "email" => $authUser->email,
                 "amount" => ($amount * 100),
                 "reference" => $reference,
                 "callbackUrl" => route("etranzact.callBack"),
                 "bearer" => 0,
-            ]);
+            ];
 
-            $responseData = $response->collect("data");
+            // Attempt 1: Public key without Bearer (per Credo docs examples)
+            $response = Http::accept('application/json')
+                ->withHeaders([
+                    'Authorization' => env('CREDO_PUBLIC_KEY'),
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                ])
+                ->timeout(15)
+                ->retry(2, 1000)
+                ->post(env("CREDO_URL") . "/transaction/initialize", $payload);
 
-            if (isset($responseData['authorizationUrl'])) {
+            if (!$response->successful()) {
+                Log::warning('Credo init attempt1 failed: status=' . $response->status() . ' body=' . $response->body());
+                // Attempt 2: Public key with Bearer prefix (some environments may expect this)
+                $response = Http::accept('application/json')
+                    ->withHeaders([
+                        'Authorization' => 'Bearer ' . env('CREDO_PUBLIC_KEY'),
+                        'Content-Type' => 'application/json',
+                        'Accept' => 'application/json',
+                    ])
+                    ->timeout(15)
+                    ->retry(2, 1000)
+                    ->post(env("CREDO_URL") . "/transaction/initialize", $payload);
+            }
+
+            if (!$response->successful()) {
+                Log::error('Credo init failed: status=' . $response->status() . ' body=' . $response->body());
+                return redirect()->back()->with([
+                    'message' => 'Payment gateway rejected credentials. Please verify CREDO_URL and keys.',
+                    'alert-type' => 'error',
+                ]);
+            }
+
+            $responseData = $response->json("data");
+
+            if (is_array($responseData) && isset($responseData['authorizationUrl'])) {
                 return redirect($responseData['authorizationUrl']);
             }
 
@@ -1253,6 +1290,7 @@ class SuperAdminActions extends Controller
                 'message' => 'Credo E-Tranzact gateway service took too long to respond.',
                 'alert-type' => 'error',
             ];
+            Log::error('Credo init missing authorizationUrl: ' . json_encode($response->json()));
 
             return redirect()->back()->with($notification);
         } catch (Exception $e) {
@@ -1265,17 +1303,40 @@ class SuperAdminActions extends Controller
             return redirect()->back()->with($notification);
         }
     }
+
+  
     public function handleETranzactCallback(Request $request)
     {
+        // Extract reference from common callback parameters
+        $reference = $request->input('reference')
+            ?? $request->input('ref')
+            ?? $request->input('transaction_reference')
+            ?? null;
+
+        if (!$reference) {
+            Log::error('Credo callback missing reference parameter', ['query' => $request->query()]);
+            return $this->handleFailedPayment('Missing transaction reference in callback.');
+        }
 
         // Verify the transaction with the payment gateway
-        $response = Http::accept('application/json')->withHeaders([
-            'authorization' => env('CREDO_SECRET_KEY'),
-            'content-type' => 'application/json',
-        ])->get(env('CREDO_URL') . "/transaction/{$request->reference}/verify");
+        $response = Http::accept('application/json')
+            ->withHeaders([
+                // Per Credo docs, verification uses SECRET KEY (no Bearer)
+                'Authorization' => env('CREDO_SECRET_KEY'),
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ])
+            ->timeout(15)
+            ->retry(2, 1000)
+            ->get(env('CREDO_URL') . "/transaction/{$reference}/verify");
 
         // Check if the response is successful
         if (!$response->successful()) {
+            Log::error('Credo verification failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'reference' => $reference,
+            ]);
             return $this->handleFailedPayment('Payment verification failed. Please try again.');
         }
 
@@ -1287,15 +1348,15 @@ class SuperAdminActions extends Controller
 
         // Handle successful payment
         if ($message == 'Successful') {
-            $recipient_id = DocumentHold::where('reference', $request->reference)->first()->recipient_id;
-            $document_no = DocumentHold::where('reference', $request->reference)->first()->docuent_number;
+            $recipient_id = DocumentHold::where('reference', $reference)->first()->recipient_id;
+            $document_no = DocumentHold::where('reference', $reference)->first()->docuent_number;
             $tenant_id = User::with('userDetail')->where('id', $recipient_id)->first()->userDetail->tenant_id;
 
             // Create a new payment record
             Payment::create([
                 'businessName' => $payment['businessName'],
                 'document_no' => $document_no,
-                'reference' => $payment['businessRef'],
+                'reference' => $payment['businessRef'] ?? $reference,
                 'transAmount' => $payment['transAmount'],
                 'transFee' => $payment['transFeeAmount'],
                 'transTotal' => $payment['debitedAmount'],
@@ -1310,7 +1371,7 @@ class SuperAdminActions extends Controller
                 'recipient_id' => $recipient_id,
                 'tenant_id' => $tenant_id,
             ]);
-            return $this->handleSuccessfulPayment($request->reference);
+            return $this->handleSuccessfulPayment($reference);
         }
 
         // Handle failed payment
@@ -1333,11 +1394,34 @@ class SuperAdminActions extends Controller
         $document->status = 'Successful';
         $document->save();
 
+        // If file_path is a local temp path, upload to Cloudinary now
+        $finalFileUrl = $document->file_path;
+        try {
+            if (!preg_match('#^https?://#', $document->file_path)) {
+                $uploader = new CloudinaryHelper();
+                $uploaderUser = User::with('userDetail')->find($document->uploaded_by);
+                $tenantId = $uploaderUser?->userDetail?->tenant_id;
+                $folder = 'edms_documents/' . ($tenantId ?? 'tenant') . '/' . $document->uploaded_by;
+
+                $absolutePath = storage_path('app/' . ltrim($document->file_path, '/'));
+                $uploadResult = $uploader->upload($absolutePath, $folder);
+                if (is_array($uploadResult) && isset($uploadResult['secure_url'])) {
+                    $finalFileUrl = $uploadResult['secure_url'];
+                }
+
+                // Cleanup temp file
+                @unlink($absolutePath);
+            }
+        } catch (Exception $e) {
+            Log::error('Cloudinary upload during payment callback failed: ' . $e->getMessage());
+            // Proceed with existing file_path; user can retry upload later.
+        }
+
         // Create a new document
         $newDocument = Document::create([
             'title' => $document->title,
             'docuent_number' => $document->docuent_number,
-            'file_path' => $document->file_path,
+            'file_path' => $finalFileUrl,
             'uploaded_by' => $document->uploaded_by,
             'status' => 'pending',
             'description' => $document->description,
