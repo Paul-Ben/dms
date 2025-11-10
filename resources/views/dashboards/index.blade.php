@@ -456,7 +456,8 @@
         <a href="#" class="btn btn-lg btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
     </div>
     <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/js/select2.min.js"></script>
+    {{-- Use local no-op Select2 stub in dev to avoid ORB blocking --}}
+    <script src="{{ asset('assets/js/lib/select2-stub.js') }}"></script>
 
     <!-- JavaScript Libraries -->
 
