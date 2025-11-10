@@ -2944,7 +2944,18 @@ class SuperAdminActions extends Controller
         $userTenant = Tenant::where('id', optional($userdetails)->tenant_id)->first();
         $tenants = Tenant::orderBy('name')->get(['id', 'name']);
 
-        return view('superadmin.cleanup.index', compact('authUser', 'userTenant', 'tenants'));
+        // Time-based restriction: allow cleanup only between 00:00 and 04:00 (app timezone)
+        $tz = config('app.timezone') ?: 'UTC';
+        $now = Carbon::now($tz);
+        $allowedWindowStart = $now->copy()->startOfDay();
+        $allowedWindowEnd = $allowedWindowStart->copy()->addHours(4);
+        $cleanupAllowedNow = $now->gte($allowedWindowStart) && $now->lt($allowedWindowEnd);
+        $nextWindowStart = $now->hour >= 4
+            ? $now->copy()->addDay()->startOfDay()
+            : $now->copy()->startOfDay();
+        $nextWindowFormatted = $nextWindowStart->format('M d, Y g:i A') . " ({$tz})";
+
+        return view('superadmin.cleanup.index', compact('authUser', 'userTenant', 'tenants', 'cleanupAllowedNow', 'nextWindowFormatted'));
     }
 
     /**
@@ -2966,6 +2977,26 @@ class SuperAdminActions extends Controller
         ]);
 
         $tenantId = (int) $request->input('tenant_id');
+
+        // Time-based restriction: allow cleanup only between 00:00 and 04:00 (app timezone)
+        $tz = config('app.timezone') ?: 'UTC';
+        $now = Carbon::now($tz);
+        $allowedWindowStart = $now->copy()->startOfDay();
+        $allowedWindowEnd = $allowedWindowStart->copy()->addHours(4);
+        $cleanupAllowedNow = $now->gte($allowedWindowStart) && $now->lt($allowedWindowEnd);
+        if (!$cleanupAllowedNow) {
+            $nextWindowStart = $now->copy()->addDay()->startOfDay();
+            // If current time is before today's 4 AM, next window is today midnight
+            if ($now->lt($allowedWindowEnd)) {
+                $nextWindowStart = $now->copy()->startOfDay();
+            }
+
+            return redirect()->back()->with([
+                'message' => 'Cleanup is restricted to 12:00 AM–4:00 AM (' . $tz . '). Next window starts at ' . $nextWindowStart->format('M d, Y g:i A') . '.',
+                'alert-type' => 'warning',
+                'cleanup_stats' => null,
+            ]);
+        }
 
         $stats = [
             'file_movements_deleted' => 0,
