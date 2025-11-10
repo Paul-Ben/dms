@@ -45,6 +45,19 @@ Route::get('/session/check', function () {
     return response()->json(['authenticated' => auth()->check()]);
 });
 
+// Local-only dev routes to test payment without auth
+if (app()->environment(['local', 'testing'])) {
+    Route::get('/_dev/test-payment-init', [SuperAdminActions::class, 'devTestPaymentInit'])->name('dev.testPaymentInit');
+    // Submit the paid filing form without auth/CSRF (local/testing only)
+    Route::post('/_dev/submit-file-document', [SuperAdminActions::class, 'devSubmitFileDocument'])
+        ->withoutMiddleware([App\Http\Middleware\VerifyCsrfToken::class])
+        ->name('dev.submitFileDocument');
+    // Simulate a successful payment callback using an existing reference
+    Route::get('/_dev/test-payment-callback', [SuperAdminActions::class, 'devCompletePayment'])->name('dev.testPaymentCallback');
+    // Fetch the most recent DocumentHold reference for dev testing
+    Route::get('/_dev/last-reference', [SuperAdminActions::class, 'devLastReference'])->name('dev.lastReference');
+}
+
 Route::middleware(['auth', 'verified', 'user.active'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 });
