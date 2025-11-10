@@ -41,7 +41,7 @@
                                 <li>Delete all folders belonging to the selected tenant.</li>
                                 <li>Delete folder permissions linked to those folders.</li>
                             </ul>
-                            <small class="text-muted d-block mt-2">Note: External file storage (e.g., Cloudinary) is not modified by this operation.</small>
+                            {{-- <small class="text-muted d-block mt-2">Note: External file storage (e.g., Cloudinary) is not modified by this operation.</small> --}}
                         </div>
 
                         <button type="submit" class="btn btn-danger" id="cleanupBtn">Run Cleanup</button>
