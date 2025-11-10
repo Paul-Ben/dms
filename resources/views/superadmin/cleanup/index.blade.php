@@ -42,9 +42,10 @@
                                 <li>Delete folder permissions linked to those folders.</li>
                             </ul>
                             {{-- <small class="text-muted d-block mt-2">Note: External file storage (e.g., Cloudinary) is not modified by this operation.</small> --}}
+                            <small class="text-muted d-block mt-2">Allowed time window: 12:00 AM–4:00 AM (server timezone). @if(isset($cleanupAllowedNow) && !$cleanupAllowedNow) Next window starts at {{ $nextWindowFormatted }}. @endif</small>
                         </div>
 
-                        <button type="submit" class="btn btn-danger" id="cleanupBtn">Run Cleanup</button>
+                        <button type="submit" class="btn btn-danger" id="cleanupBtn" @if(isset($cleanupAllowedNow) && !$cleanupAllowedNow) disabled @endif>Run Cleanup</button>
                         <span id="progressMsg" class="text-muted ms-2 d-none">Processing cleanup… please wait.</span>
                     </form>
 
