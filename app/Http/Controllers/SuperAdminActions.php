@@ -33,6 +33,10 @@ use App\Models\Attachments;
 use App\Models\DocumentHold;
 use App\Models\FileCharge;
 use App\Models\Memo;
+use App\Models\MemoMovement;
+use App\Models\MemoRecipient;
+use App\Models\Folder;
+use App\Models\FolderPermission;
 use App\Models\MemoTemplate;
 use App\Models\Payment;
 use Carbon\Carbon;
@@ -2970,6 +2974,12 @@ class SuperAdminActions extends Controller
             'activities_deleted' => 0,
             'cloudinary_deleted' => 0,
             'cloudinary_failed' => 0,
+            // New tables
+            'memos_deleted' => 0,
+            'memo_movements_deleted' => 0,
+            'memo_recipients_deleted' => 0,
+            'folders_deleted' => 0,
+            'folder_permissions_deleted' => 0,
         ];
 
         try {
@@ -3021,6 +3031,49 @@ class SuperAdminActions extends Controller
                         $deleted = Document::whereIn('id', $ids)->delete();
                         $stats['documents_deleted'] += $deleted;
                     });
+
+                // ===== Additional cleanup for memos and folders =====
+                // Memos authored by tenant users
+                $memoIds = Memo::whereIn('user_id', $tenantUserIds)->pluck('id');
+
+                // Count memo movements and recipients that will be affected
+                $memoMovementsQuery = MemoMovement::whereIn('memo_id', $memoIds)
+                    ->orWhereIn('sender_id', $tenantUserIds)
+                    ->orWhereIn('recipient_id', $tenantUserIds);
+
+                $stats['memo_movements_deleted'] += (clone $memoMovementsQuery)->count();
+
+                // Recipients linked to movements impacted above (cascade will remove on movement delete)
+                $stats['memo_recipients_deleted'] += DB::table('memo_recipients')
+                    ->whereIn('memo_movement_id', function ($q) use ($memoIds, $tenantUserIds) {
+                        $q->select('id')
+                          ->from('memo_movements')
+                          ->whereIn('memo_id', $memoIds)
+                          ->orWhereIn('sender_id', $tenantUserIds)
+                          ->orWhereIn('recipient_id', $tenantUserIds);
+                    })->count();
+
+                // Delete memo movements (recipients cascade)
+                $memoMovementsQuery->chunkById(500, function ($chunk) {
+                    MemoMovement::whereIn('id', $chunk->pluck('id'))->delete();
+                });
+
+                // Delete memos
+                Memo::whereIn('id', $memoIds)->chunkById(500, function ($chunk) use (&$stats) {
+                    $ids = $chunk->pluck('id');
+                    $deleted = Memo::whereIn('id', $ids)->delete();
+                    $stats['memos_deleted'] += $deleted;
+                });
+
+                // Folders belonging to tenant (permissions cascade on delete)
+                $folderIds = Folder::where('tenant_id', $tenantId)->pluck('id');
+                $stats['folders_deleted'] += Folder::where('tenant_id', $tenantId)->count();
+                $stats['folder_permissions_deleted'] += DB::table('folder_permissions')
+                    ->whereIn('folder_id', $folderIds)->count();
+
+                Folder::whereIn('id', $folderIds)->chunkById(500, function ($chunk) {
+                    Folder::whereIn('id', $chunk->pluck('id'))->delete();
+                });
             });
         } catch (\Throwable $e) {
             Log::error('Tenant cleanup failed for tenant_id ' . $tenantId . ': ' . $e->getMessage());
@@ -3035,7 +3088,13 @@ class SuperAdminActions extends Controller
                 . 'FileMovements: ' . $stats['file_movements_deleted']
                 . ', Documents: ' . $stats['documents_deleted']
                 . ', DocumentRecipients: ' . $stats['document_recipients_deleted']
-                . ', Activities: ' . $stats['activities_deleted'],
+                . ', Activities: ' . $stats['activities_deleted']
+                . ', Memos: ' . $stats['memos_deleted']
+                . ', MemoMovements: ' . $stats['memo_movements_deleted']
+                . ', MemoRecipients: ' . $stats['memo_recipients_deleted']
+                . ', Folders: ' . $stats['folders_deleted']
+                . ', FolderPermissions: ' . $stats['folder_permissions_deleted'],
+            'cleanup_stats' => $stats,
             'alert-type' => 'success'
         ]);
     }
