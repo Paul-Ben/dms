@@ -57,7 +57,18 @@ class BackupLogController extends Controller
             }
         }
         if (Auth::user()->default_role === 'superadmin') {
-            return view('superadmin.backups', compact('backups', 'spatieBackups', 'userTenant', 'authUser'));
+            // Allowed window between 00:00 and 04:00 (server/app timezone)
+            $tz = config('app.timezone') ?: 'UTC';
+            $now = \Carbon\Carbon::now($tz);
+            $allowedStart = $now->copy()->startOfDay();
+            $allowedEnd = $allowedStart->copy()->addHours(4);
+            $actionsAllowedNow = $now->gte($allowedStart) && $now->lt($allowedEnd);
+            $nextWindowStart = $now->hour >= 4
+                ? $now->copy()->addDay()->startOfDay()
+                : $now->copy()->startOfDay();
+            $nextWindowFormatted = $nextWindowStart->format('M d, Y g:i A') . " ({$tz})";
+
+            return view('superadmin.backups', compact('backups', 'spatieBackups', 'userTenant', 'authUser', 'actionsAllowedNow', 'nextWindowFormatted'));
         }
         return view('errors.404', compact('authUser', 'userTenant'));
     }
@@ -250,5 +261,77 @@ class BackupLogController extends Controller
             'alert-type' => 'success'
         ];
         return redirect()->route('backup.index')->with($notification);
+    }
+    
+    /**
+     * Trigger visitor:backup asynchronously via a queued job if within allowed window.
+     */
+    public function runVisitorActivityBackup(Request $request)
+    {
+        if (Auth::user()->default_role !== 'superadmin') {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $tz = config('app.timezone') ?: 'UTC';
+        $now = \Carbon\Carbon::now($tz);
+        $allowedStart = $now->copy()->startOfDay();
+        $allowedEnd = $allowedStart->copy()->addHours(4);
+        $allowed = $now->gte($allowedStart) && $now->lt($allowedEnd);
+        if (!$allowed) {
+            $nextWindowStart = $now->hour >= 4 ? $now->copy()->addDay()->startOfDay() : $now->copy()->startOfDay();
+            return redirect()->route('backup.index')->with([
+                'message' => 'Action allowed only between 12:00 AM–4:00 AM (' . $tz . '). Next window: ' . $nextWindowStart->format('M d, Y g:i A') . '.',
+                'alert-type' => 'warning',
+            ]);
+        }
+
+        try {
+            \App\Jobs\RunVisitorBackup::dispatch();
+            return redirect()->route('backup.index')->with([
+                'message' => 'Visitor backup job queued successfully. Check logs for progress.',
+                'alert-type' => 'success',
+            ]);
+        } catch (\Throwable $e) {
+            return redirect()->route('backup.index')->with([
+                'message' => 'Failed to queue visitor backup: ' . $e->getMessage(),
+                'alert-type' => 'error',
+            ]);
+        }
+    }
+
+    /**
+     * Trigger backup:weekly-incremental asynchronously via queued job if within allowed window.
+     */
+    public function runWeeklyIncrementalBackup(Request $request)
+    {
+        if (Auth::user()->default_role !== 'superadmin') {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $tz = config('app.timezone') ?: 'UTC';
+        $now = \Carbon\Carbon::now($tz);
+        $allowedStart = $now->copy()->startOfDay();
+        $allowedEnd = $allowedStart->copy()->addHours(4);
+        $allowed = $now->gte($allowedStart) && $now->lt($allowedEnd);
+        if (!$allowed) {
+            $nextWindowStart = $now->hour >= 4 ? $now->copy()->addDay()->startOfDay() : $now->copy()->startOfDay();
+            return redirect()->route('backup.index')->with([
+                'message' => 'Action allowed only between 12:00 AM–4:00 AM (' . $tz . '). Next window: ' . $nextWindowStart->format('M d, Y g:i A') . '.',
+                'alert-type' => 'warning',
+            ]);
+        }
+
+        try {
+            \App\Jobs\RunWeeklyIncrementalBackup::dispatch();
+            return redirect()->route('backup.index')->with([
+                'message' => 'Weekly incremental backup job queued successfully. Check logs for progress.',
+                'alert-type' => 'success',
+            ]);
+        } catch (\Throwable $e) {
+            return redirect()->route('backup.index')->with([
+                'message' => 'Failed to queue weekly incremental backup: ' . $e->getMessage(),
+                'alert-type' => 'error',
+            ]);
+        }
     }
 }
