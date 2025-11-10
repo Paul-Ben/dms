@@ -36,13 +36,36 @@
                                 <li>Delete file movements for the tenant’s users and documents.</li>
                                 <li>Delete document recipients linked to those movements and tenant users.</li>
                                 <li>Delete documents uploaded by tenant users.</li>
-                                <li>Delete Cloudinary files referenced by those documents.</li>
+                                <li>Delete memos authored by tenant users.</li>
+                                <li>Delete memo movements and their recipients tied to tenant users.</li>
+                                <li>Delete all folders belonging to the selected tenant.</li>
+                                <li>Delete folder permissions linked to those folders.</li>
                             </ul>
+                            <small class="text-muted d-block mt-2">Note: External file storage (e.g., Cloudinary) is not modified by this operation.</small>
                         </div>
 
                         <button type="submit" class="btn btn-danger" id="cleanupBtn">Run Cleanup</button>
                         <span id="progressMsg" class="text-muted ms-2 d-none">Processing cleanup… please wait.</span>
                     </form>
+
+                    @if(session('cleanup_stats'))
+                        <div class="mt-4">
+                            <div class="alert alert-success">
+                                <strong>Cleanup Results</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li>File Movements: {{ session('cleanup_stats')['file_movements_deleted'] ?? 0 }}</li>
+                                    <li>Documents: {{ session('cleanup_stats')['documents_deleted'] ?? 0 }}</li>
+                                    <li>Document Recipients: {{ session('cleanup_stats')['document_recipients_deleted'] ?? 0 }}</li>
+                                    <li>Activities: {{ session('cleanup_stats')['activities_deleted'] ?? 0 }}</li>
+                                    <li>Memos: {{ session('cleanup_stats')['memos_deleted'] ?? 0 }}</li>
+                                    <li>Memo Movements: {{ session('cleanup_stats')['memo_movements_deleted'] ?? 0 }}</li>
+                                    <li>Memo Recipients: {{ session('cleanup_stats')['memo_recipients_deleted'] ?? 0 }}</li>
+                                    <li>Folders: {{ session('cleanup_stats')['folders_deleted'] ?? 0 }}</li>
+                                    <li>Folder Permissions: {{ session('cleanup_stats')['folder_permissions_deleted'] ?? 0 }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
