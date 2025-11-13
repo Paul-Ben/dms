@@ -1506,7 +1506,7 @@ class SuperAdminAPIController extends Controller
     public function designationIndex()
     {
         $authUser = Auth::user();
-        if (!in_array($authUser->default_role, ['superadmin', 'Admin'])) {
+        if (!in_array($authUser->default_role, ['superadmin', 'Admin', 'IT Admin'])) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 

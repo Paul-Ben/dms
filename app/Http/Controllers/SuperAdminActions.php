@@ -463,7 +463,7 @@ class SuperAdminActions extends Controller
     public function designationsData(Request $request)
     {
         $user = Auth::user();
-        if (!$user || $user->default_role !== 'superadmin') {
+        if (!$user || !in_array($user->default_role, ['superadmin', 'Admin', 'IT Admin'])) {
             return response()->json([
                 'draw' => intval($request->input('draw')),
                 'recordsTotal' => 0,
@@ -507,16 +507,21 @@ class SuperAdminActions extends Controller
         $csrf = csrf_token();
         $data = [];
         foreach ($rows as $i => $designation) {
-            $action = '<div class="nav-item dropdown">'
-                .'<a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Details</a>'
-                .'<div class="dropdown-menu">'
-                .'<a href="' . route('designation.edit', $designation) . '" class="dropdown-item">Edit</a>'
-                .'<form action="' . route('designation.delete', $designation) . '" method="POST" onsubmit="return confirm(\'Are you sure?\');" style="display:inline">'
-                .'<input type="hidden" name="_token" value="' . $csrf . '">' . '<input type="hidden" name="_method" value="DELETE">'
-                .'<button class="dropdown-item" style="background-color: rgb(235, 78, 78)" type="submit">Delete</button>'
-                .'</form>'
-                .'</div>'
-                .'</div>';
+            // Only superadmin sees edit/delete actions; others are view-only
+            if ($user->default_role === 'superadmin') {
+                $action = '<div class="nav-item dropdown">'
+                    .'<a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Details</a>'
+                    .'<div class="dropdown-menu">'
+                    .'<a href="' . route('designation.edit', $designation) . '" class="dropdown-item">Edit</a>'
+                    .'<form action="' . route('designation.delete', $designation) . '" method="POST" onsubmit="return confirm(\'Are you sure?\');" style="display:inline">'
+                    .'<input type="hidden" name="_token" value="' . $csrf . '">' . '<input type="hidden" name="_method" value="DELETE">'
+                    .'<button class="dropdown-item" style="background-color: rgb(235, 78, 78)" type="submit">Delete</button>'
+                    .'</form>'
+                    .'</div>'
+                    .'</div>';
+            } else {
+                $action = '-';
+            }
 
             $data[] = [
                 'index' => $indexStart + $i,
