@@ -33,40 +33,7 @@
                             <th scope="col" >Date</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @forelse ($sent_documents as $key => $sent)
-                            <tr>
-                                <td>{{ $key + 1 }}</td>
-                                <td><a href="{{ route('document.view', $sent) }}">
-                                    {{ $sent->document->docuent_number }}
-                                </a>
-                            </td>
-                                <td>{{$sent->document->title}}</td>
-                                <td>
-                                    @if ($mda)
-                                        {{$mda[0]->designation}}, <br>
-                                    <span>{{$mda[0]->tenant->name}}</span>
-                                    @else
-                                    <span>Not Found</span>
-                                    @endif
-                                    
-                                </td>
-                                <td>{{$sent->document->created_at->format('M j, Y g:i A')}}</td>
-                                {{-- <td>
-                                    <a href="{{route('document.view_sent', $sent)}}" class="nav-item">View</a>
-                                </td> --}}
-                            </tr>
-                            @empty
-                            <tr class="text-center">
-                                <td>0</td>
-                                <td>No Data Found</td>
-                                <td>—</td>
-                                <td>—</td>
-                                <td>—</td>
-                            </tr>
-                        @endforelse
-
-                    </tbody>
+                    <tbody></tbody>
                 </table>
             </div>
             {{-- @if($sent_documents->count() > 0)
@@ -80,22 +47,26 @@
     <script>
         $(document).ready(function() {
             $('#userSent').DataTable({
+                processing: true,
+                serverSide: true,
                 responsive: true,
                 autoWidth: false,
-                paging: true, // Enable pagination
-                searching: true, // Enable search
-                ordering: true, // Enable sorting
-                lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
-                columnDefs: [{
-                        orderable: false,
-                        targets: -1
-                    } // Disable sorting on last column (Actions)
+                ajax: {
+                    url: "{{ route('user.documents.sent.data') }}",
+                    type: 'GET'
+                },
+                columns: [
+                    { data: 'index', name: 'index', orderable: false },
+                    { data: 'doc_no', name: 'documents.docuent_number' },
+                    { data: 'title', name: 'documents.title' },
+                    { data: 'sent_to', name: 'recipient_details' },
+                    { data: 'date', name: 'file_movements.updated_at' },
                 ],
+                order: [[0, 'asc']],
                 language: {
                     searchPlaceholder: "Search here...",
                     zeroRecords: "No matching records found",
                     lengthMenu: "Show entries",
-                    // info: "Showing START to END of TOTAL entries",
                     infoFiltered: "(filtered from MAX total entries)",
                 }
             });
