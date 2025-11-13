@@ -49,34 +49,7 @@
                                 <th scope="col">Action</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @foreach ($organisations as $key => $tenant)
-                                <tr>
-                                    <td>{{ $key + 1 }}</td>
-                                    {{-- <td><img src="{{ asset('logos/' . $tenant->logo) }}" alt="" width="50"></td> --}}
-                                    <td><a href="{{route('organisation.departments', $tenant)}}">{{ $tenant->name }}</a></td>
-                                    <td>{{ $tenant->email }}</td>
-                                    <td>{{ $tenant->phone }}</td>
-                                    <td>{{ $tenant->status }}</td>
-                                    <td>
-                                        <div class="nav-item dropdown">
-                                            <a href="#" class="nav-link dropdown-toggle"
-                                                data-bs-toggle="dropdown">Details</a>
-                                            <div class="dropdown-menu">
-                                                <a href="{{route('organisation.edit', $tenant)}}" class="dropdown-item">Edit</a>
-                                                <form action="{{ route('organisation.delete', $tenant) }}" method="POST" onsubmit="return confirm('Are you sure?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                   
-                                                    <button class="dropdown-item" style="background-color: rgb(235, 78, 78)" type="submit">Delete</button>
-                                                </form> 
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @endforeach
-
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
                 {{-- <div class="mt-4">{{$organisations->links('pagination::bootstrap-5')}}</div> --}}
@@ -84,25 +57,30 @@
         </div>
         <!-- Table End -->
         <script>
-            $(document).ready(function() {
+            $(function() {
                 $('#superOrganisation').DataTable({
+                    processing: true,
+                    serverSide: true,
                     responsive: true,
                     autoWidth: false,
-                    paging: true, // Enable pagination
-                    searching: true, // Enable search
-                    ordering: true, // Enable sorting
-                    lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
-                    columnDefs: [{
-                            orderable: false,
-                            targets: -1
-                        } // Disable sorting on last column (Actions)
+                    ajax: {
+                        url: '{{ route('superadmin.organisations.data') }}',
+                        type: 'GET'
+                    },
+                    columns: [
+                        { data: 'index', name: 'index', orderable: false, searchable: false },
+                        { data: 'name', name: 'name' },
+                        { data: 'email', name: 'email' },
+                        { data: 'phone', name: 'phone' },
+                        { data: 'status', name: 'status' },
+                        { data: 'action', name: 'action', orderable: false, searchable: false }
                     ],
+                    order: [[0, 'desc']],
+                    lengthMenu: [10, 25, 50, 100],
                     language: {
-                        searchPlaceholder: "Search here...",
-                        zeroRecords: "No matching records found",
-                        lengthMenu: "Show entries",
-                        // info: "Showing START to END of TOTAL entries",
-                        infoFiltered: "(filtered from MAX total entries)",
+                        searchPlaceholder: 'Search here...',
+                        zeroRecords: 'No matching records found',
+                        lengthMenu: 'Show entries'
                     }
                 });
             });
