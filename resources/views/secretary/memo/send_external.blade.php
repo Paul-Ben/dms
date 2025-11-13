@@ -34,7 +34,7 @@
                     <div class="form-group" hidden>
                         <label for="subject">Subject</label>
                         <input type="text" value="{{ $memo->id }}" class="form-control" id="subject"
-                            name="document_id" required>
+                            name="memo_id" required>
                     </div>
                     <div class="form-group">
                         <label for="message">Message</label>
