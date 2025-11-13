@@ -48,49 +48,7 @@
                             <th scope="col">Action</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @foreach ($users as $key => $user)
-                            <tr>
-                                <td>{{ $key + 1 }}</td>
-                                <td><a href="{{route('user.view', $user)}}">{{ $user->name }}</a></td>
-                                <td>{{ $user->userDetail->tenant->name }}</td>
-
-                                <td>{{ $user->userDetail?->tenant_department?->name ?? $user->userDetail->designation }}</td>
-                                <td>
-                                    <div class="nav-item dropdown">
-                                        <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Details</a>
-                                        <div class="dropdown-menu">
-                                            <a href="{{route('user.edit', $user)}}" class="dropdown-item">Edit</a>
-                                            @if($user->is_active)
-                                                <form method="POST" action="{{ route('user.deactivate', $user->id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to deactivate this user? They will not be able to log in until reactivated.')">
-                                                    @csrf
-                                                    @method('PATCH')
-                                                    <button type="submit" class="dropdown-item text-warning" style="border: none; background: none; text-align: left; width: 100%;">Deactivate</button>
-                                                </form>
-                                            @else
-                                                <form method="POST" action="{{ route('user.activate', $user->id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to activate this user?')">
-                                                    @csrf
-                                                    @method('PATCH')
-                                                    <button type="submit" class="dropdown-item text-success" style="border: none; background: none; text-align: left; width: 100%;">Activate</button>
-                                                </form>
-                                            @endif
-
-                                            @if(is_null($user->email_verified_at))
-                                                <form method="POST" action="{{ route('user.verify', $user->id) }}" style="display: inline;" onsubmit="return confirm('Verify this account?')">
-                                                    @csrf
-                                                    @method('PATCH')
-                                                    <button type="submit" class="dropdown-item" style="border: none; background: none; text-align: left; width: 100%;">Verify Account</button>
-                                                </form>
-                                            @else
-                                                <span class="dropdown-item text-muted">Verified</span>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforeach
-
-                    </tbody>
+                    <tbody></tbody>
                 </table>
                 <div class="mt-4">
                     {{-- @if ($users->count() > 0)
@@ -102,29 +60,31 @@
     </div>
     <!-- Table End -->
     <script>
-        $(document).ready(function() {
+        $(function() {
             $('#superUserMan').DataTable({
+                processing: true,
+                serverSide: true,
                 responsive: true,
                 autoWidth: false,
-                paging: true, // Enable pagination
-                searching: true, // Enable search
-                ordering: true, // Enable sorting
-                lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
-                columnDefs: [{
-                        orderable: false,
-                        targets: -1
-                    } // Disable sorting on last column (Actions)
+                ajax: {
+                    url: '{{ route('superadmin.usermanager.data') }}',
+                    type: 'GET'
+                },
+                columns: [
+                    { data: 'index', name: 'index', orderable: false, searchable: false },
+                    { data: 'name', name: 'users.name' },
+                    { data: 'designation', name: 'tenants.name' },
+                    { data: 'department', name: 'tenant_departments.name' },
+                    { data: 'action', name: 'action', orderable: false, searchable: false }
                 ],
+                order: [[0, 'desc']],
+                lengthMenu: [10, 25, 50, 100],
                 language: {
-                    searchPlaceholder: "Search here...",
-                    zeroRecords: "No matching records found",
-                    lengthMenu: "Show entries",
-                    // info: "Showing START to END of TOTAL entries",
-                    infoFiltered: "(filtered from MAX total entries)",
+                    searchPlaceholder: 'Search here...',
+                    zeroRecords: 'No matching records found',
+                    lengthMenu: 'Show entries'
                 }
             });
         });
-
-
     </script>
 @endsection
