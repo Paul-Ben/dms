@@ -28,7 +28,7 @@
                 </div>
             </div>
             <div class="table-responsive">
-                <table class="table text-start align-middle table-bordered table-hover mb-0">
+                <table id="staffMemos" class="table text-start align-middle table-bordered table-hover mb-0">
                     <thead>
                         <tr class="text-dark">
                             <th scope="col">#</th>
@@ -39,39 +39,7 @@
                             <th scope="col">Action</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @forelse ($memos as $key => $document)
-                            <tr>
-                                <td>{{ $key + 1 }}</td>
-                                <td><a href="{{ route('memo.view', $document) }}">{{ $document->docuent_number }}</a>
-                                </td>
-                                <td><a href="{{ route('memo.view', $document)}}">{{ $document->title }}</a></td>
-                                {{-- <td></td> --}}
-                                <td>{{$document->status}}</td>
-                                <td>
-                                    <div class="nav-item dropdown">
-                                        <a href="#" class="nav-link dropdown-toggle"
-                                            data-bs-toggle="dropdown">Details</a>
-                                        <div class="dropdown-menu">
-                                            <a href="" onclick="showSendOptions(event)"
-                                                class="dropdown-item">Send</a>
-                                            <a href="{{route('memo.edit', $document)}}" class="dropdown-item">Edit</a>
-                                            {{-- <a href="delete_student.html" class="dropdown-item" style="background-color: rgb(239, 79, 79)">Delete</a> --}}
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr class="text-center">
-                                <td></td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                            </tr>
-                        @endforelse
-
-                    </tbody>
+                    <tbody></tbody>
                 </table>
                 <div class="pt-4">
                     {{-- {{ $memos->links('pagination::bootstrap-5') }} --}}
@@ -91,35 +59,32 @@
     </div>
     <!-- Table End -->
     <script>
-        // Check if $document is null and set a default value or handle accordingly
-        @if(isset($document) && $document)
-            const documentId = '{{ $document->id }}'; // Use document ID if available
-        @else
-            const documentId = null; // Set to null or handle as needed
-        @endif
-    
-        function showSendOptions(event) {
-            event.preventDefault(); // Prevent the default link behavior
-            document.getElementById('sendOptionsModal').style.display = 'block'; // Show the modal
-        }
-    
-        function closeModal() {
-            document.getElementById('sendOptionsModal').style.display = 'none'; // Hide the modal
-        }
-    
-        function sendDocument(option) {
-            if (!documentId) {
-                alert("Memo not found."); // Alert user if document ID is null
-                return; // Exit the function early
-            }
-    
-            if (option === 'internal') {
-                window.location.href = "{{ route('memo.send', ':id') }}".replace(':id', documentId); // Redirect to internal send route
-            } else {
-                // Handle external send route here, e.g.:
-                window.location.href = "{{route('memo.sendout', ':id')}}".replace(':id', documentId); // Redirect to external send route
-            }
-        }
+        $(document).ready(function() {
+            $('#staffMemos').DataTable({
+                processing: true,
+                serverSide: true,
+                responsive: true,
+                autoWidth: false,
+                ajax: {
+                    url: '{{ route('staff.memo.index.data') }}',
+                    type: 'GET'
+                },
+                columns: [
+                    { data: 'index', name: 'index', orderable: false, searchable: false },
+                    { data: 'doc_no', name: 'memos.docuent_number' },
+                    { data: 'title', name: 'memos.title' },
+                    { data: 'status', name: 'memos.status' },
+                    { data: 'action', name: 'action', orderable: false, searchable: false }
+                ],
+                order: [[0, 'desc']],
+                lengthMenu: [10, 25, 50, 100],
+                language: {
+                    searchPlaceholder: 'Search here...',
+                    zeroRecords: 'No matching records found',
+                    lengthMenu: 'Show entries'
+                }
+            });
+        });
     </script>
     
     <style>
