@@ -6,6 +6,11 @@
             50% { transform: scale(1.2); }
             100% { transform: scale(1); }
         }
+        .select-close-footer {
+            padding: 8px;
+            border-top: 1px solid #e9ecef;
+            background: #fff;
+        }
 </style>
     <div class="container-fluid pt-4 px-4">
         <div class="bg-light rounded p-4">
@@ -36,7 +41,7 @@
                     <div class="form-group mb-3">
                         <label for="recipient_email">Select Staff to minute to:</label>
 
-                        <select class="form-control selectpicker" name="recipient_id[]" id="recipients" multiple="multiple">
+                        <select class="form-control selectpicker" name="recipient_id[]" id="recipients" multiple="multiple" data-live-search="true" title="Select recipients">
                             <option value="" disabled>Select recipients</option>
                             @foreach ($recipients as $user)
                                 <option value="{{ $user->id }}">
@@ -162,9 +167,21 @@
         $(document).ready(function() {
             $('#recipients').selectpicker({
                 theme: 'bootstrap4',
-                placeholder: "Select recipients",
-                allowClear: true,
-                tags: false,
+                liveSearch: true,
+                noneSelectedText: 'Select recipients'
+            });
+
+            // Add a visible Done footer button to close the dropdown
+            $('#recipients').on('shown.bs.select', function () {
+                const $container = $(this).parent();
+                const $menu = $container.find('.dropdown-menu');
+                if ($menu.find('.select-close-footer').length === 0) {
+                    const $footer = $('<div class="select-close-footer"><button type="button" class="btn btn-primary btn-sm w-100" title="Done" aria-label="Done">Done</button></div>');
+                    $footer.find('button').on('click', function() {
+                        $('#recipients').selectpicker('hide');
+                    });
+                    $menu.append($footer);
+                }
             });
         });
     </script>
