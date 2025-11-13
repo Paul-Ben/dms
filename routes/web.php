@@ -172,6 +172,9 @@ Route::get('/organisations/search', [SearchController::class, 'searchOrg'])->nam
     Route::get('/admin/departments/data', [AdminDepartmentController::class, 'data'])->name('admin.departments.data');
     // Admin users DataTables server-side endpoint
     Route::get('/admin/users/data', [AdminUserManagerController::class, 'data'])->name('admin.users.data');
+
+    // Admin: Tenant Analytics
+    Route::get('/admin/analytics', [\App\Http\Controllers\Admin\AnalyticsController::class, 'index'])->name('admin.analytics.index');
     Route::get('/document/create', [SuperAdminActions::class, 'document_create'])->name('document.create');
     Route::post('/document/create', [SuperAdminActions::class, 'document_store'])->name('document.store');
     Route::get('/document/sent', [SuperAdminActions::class, 'sent_documents'])->name('document.sent');
