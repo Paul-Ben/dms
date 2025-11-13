@@ -36,40 +36,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse ($sent_documents as $key => $sent)
-                            <tr>
-                                <td>{{ $key + 1 }}</td>
-                                <td><a href="{{ route('document.view', $sent) }}">
-                                        {{ $sent->document->docuent_number }}
-                                    </a>
-                                </td>
-                                <td>{{ $sent->document->title }}</td>
-                                <td>
-                                    {{ $sent->recipient_details[0]->userDetail->designation }}, <br>
-                                    @if ($sent->recipient_details[0]->userDetail->tenant->name)
-                                        <span>{{ $sent->recipient_details[0]->userDetail->tenant->name }}</span>
-                                    @endif
-                                </td>
-                                <td>{{ $sent->updated_at->format('M j, Y g:i A') }}</td>
-                                {{-- <td>
-                                    
-                                    <a href="{{ route('folders.select', $sent->document->id) }}" 
-                                        class="btn btn-sm btn-primary  p-2"
-                                        title="Add to folder">
-                                         <i class="fas fa-folder-plus"></i>
-                                     </a>
-                                  
-                                </td> --}}
-                            </tr>
-                        @empty
-                            <tr class="text-center">
-                                <td></td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                            </tr>
-                        @endforelse
+                        
 
                     </tbody>
                 </table>
@@ -82,4 +49,32 @@
         </div>
     </div>
     <!-- Table End -->
+    <script>
+        $(document).ready(function() {
+            $('#visitLogsTable').DataTable({
+                processing: true,
+                serverSide: true,
+                responsive: true,
+                autoWidth: false,
+                ajax: {
+                    url: '{{ route('admin.documents.sent.data') }}',
+                    type: 'GET'
+                },
+                columns: [
+                    { data: 'index', name: 'index', orderable: false, searchable: false },
+                    { data: 'doc_no', name: 'documents.docuent_number' },
+                    { data: 'subject', name: 'documents.title' },
+                    { data: 'sent_to', name: 'recipient_details' },
+                    { data: 'date', name: 'file_movements.updated_at' }
+                ],
+                order: [[4, 'desc']],
+                lengthMenu: [10, 25, 50, 100],
+                language: {
+                    searchPlaceholder: 'Search here...',
+                    zeroRecords: 'No matching records found',
+                    lengthMenu: 'Show entries'
+                }
+            });
+        });
+    </script>
 @endsection
