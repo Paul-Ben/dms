@@ -48,44 +48,7 @@
                             <th scope="col">Action</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @forelse ($documents as $key => $document)
-                            <tr>
-                                <td>{{ $key + 1 }}</td>
-                                {{-- <td>
-                                    <a target="_blank"
-                                        href="{{ asset('storage/' . $document->file_path) }}">{{ $document->docuent_number }}</a>
-
-                                </td> --}}
-                                <td>
-                                    <a href="{{ route('document.myview', $document->id) }}">{{ $document->docuent_number }}</a>
-
-                                </td>
-                                <td>{{ $document->title }}</td>
-                                <td>{{ $document->status }}</td>
-                                <td>
-                                    <div class="nav-item dropdown">
-                                        <a href="#" class="nav-link dropdown-toggle"
-                                            data-bs-toggle="dropdown">Details</a>
-                                        <div class="dropdown-menu">
-                                            {{-- <a href="{{ route('folders.select', $document->id) }}" class="dropdown-item">Add to Folder</a> --}}
-                                            <a href="" onclick="showSendOptions(event, {{ $document->id }})"
-                                                class="dropdown-item">Send</a>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr class="text-center">
-                                <td></td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                            </tr>
-                        @endforelse
-
-                    </tbody>
+                    <tbody></tbody>
                 </table>
                 <div class="pt-4">
 
@@ -197,25 +160,29 @@
     </style>
 
     <script>
-        $(document).ready(function() {
+        $(function() {
             $('#adminDocs').DataTable({
+                processing: true,
+                serverSide: true,
                 responsive: true,
                 autoWidth: false,
-                paging: true, // Enable pagination
-                searching: true, // Enable search
-                ordering: true, // Enable sorting
-                lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
-                columnDefs: [{
-                        orderable: false,
-                        targets: -1
-                    } // Disable sorting on last column (Actions)
+                ajax: {
+                    url: '{{ route('admin.documents.data') }}',
+                    type: 'GET'
+                },
+                columns: [
+                    { data: 'index', name: 'index', orderable: false, searchable: false },
+                    { data: 'docuent_number', name: 'docuent_number' },
+                    { data: 'title', name: 'title' },
+                    { data: 'status', name: 'status' },
+                    { data: 'action', name: 'action', orderable: false, searchable: false }
                 ],
+                order: [[0, 'desc']],
+                lengthMenu: [10, 25, 50, 100],
                 language: {
-                    searchPlaceholder: "Search here...",
-                    zeroRecords: "No matching records found",
-                    lengthMenu: "Show entries",
-                    // info: "Showing START to END of TOTAL entries",
-                    infoFiltered: "(filtered from MAX total entries)",
+                    searchPlaceholder: 'Search here...',
+                    zeroRecords: 'No matching records found',
+                    lengthMenu: 'Show entries'
                 }
             });
         });

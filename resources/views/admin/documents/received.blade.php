@@ -34,29 +34,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse ($received_documents as $key => $received)
-                            <tr>
-                                <td>{{ $key+1}}</td>
-                                <td><a href="{{route('document.view', $received)}}">
-                                    {{$received->document->docuent_number}}
-                                </a></td>
-                                <td>{{$received->document->title}}</td>
-                                <td>{{$received->sender_details->name ?? 'NA'}}</td>
-                                <td>{{$received->document->status}}</td>
-                                <td>
-                                    {{$received->updated_at->format('M j, Y g:i A')}}
-                                </td>
-                            </tr>
-                            @empty
-                            <tr class="text-center">
-                                <td></td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                </tr>
-                        @endforelse
+                        
 
                     </tbody>
                 </table>
@@ -67,23 +45,28 @@
     <script>
         $(document).ready(function() {
             $('#incoming').DataTable({
+                processing: true,
+                serverSide: true,
                 responsive: true,
                 autoWidth: false,
-                paging: true, // Enable pagination
-                searching: true, // Enable search
-                ordering: true, // Enable sorting
-                lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
-                columnDefs: [{
-                        orderable: false,
-                        targets: -1
-                    } // Disable sorting on last column (Actions)
+                ajax: {
+                    url: '{{ route('admin.documents.received.data') }}',
+                    type: 'GET'
+                },
+                columns: [
+                    { data: 'index', name: 'index', orderable: false, searchable: false },
+                    { data: 'doc_no', name: 'documents.docuent_number' },
+                    { data: 'subject', name: 'documents.title' },
+                    { data: 'submitted_by', name: 'sender.name' },
+                    { data: 'status', name: 'documents.status' },
+                    { data: 'date', name: 'file_movements.updated_at' }
                 ],
+                order: [[5, 'desc']],
+                lengthMenu: [10, 25, 50, 100],
                 language: {
-                    searchPlaceholder: "Search here...",
-                    zeroRecords: "No matching records found",
-                    lengthMenu: "Show entries",
-                    // info: "Showing START to END of TOTAL entries",
-                    infoFiltered: "(filtered from MAX total entries)",
+                    searchPlaceholder: 'Search here...',
+                    zeroRecords: 'No matching records found',
+                    lengthMenu: 'Show entries'
                 }
             });
         });
