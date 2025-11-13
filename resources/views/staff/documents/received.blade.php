@@ -33,71 +33,39 @@
                             <th scope="col">Date</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @forelse ($received_documents as $key => $received)
-                            <tr>
-                                <td>{{ $key + 1}}</td>
-                                <td><a href="{{route('document.view', $received)}}">
-                                    {{$received->document->docuent_number}}
-                                </a></td>
-                                <td>{{$received->document->title}}</td>
-                                {{-- <td>{{$received->sender_details->name}}</td> --}}
-                                <td>{{$received->sender->userDetail->designation}} <br>
-                                    @if ($received->sender->userDetail->tenant_department)
-                                    {{$received->sender->userDetail->tenant_department->name}} 
-                                    @endif
-                                </td>
-                                <td>{{$received->document->status}}</td>
-                                <td>{{$received->updated_at->format('M j, Y g:i A')}}</td>
-                                {{-- <td>
-                                    <div class="nav-item dropdown">
-                                        <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Details</a>
-                                        <div class="dropdown-menu">
-                                            <a href="{{route('document.view', $received)}}" class="dropdown-item">View</a>
-                                    
-                                        </div>
-                                    </div>
-                                </td> --}}
-                            </tr>
-                            @empty
-                            <tr class="text-center">
-                                <td></td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                </tr>
-                        @endforelse
-
-                    </tbody>
+                    <tbody></tbody>
                 </table>
             </div>
         </div>
     </div>
     <!-- Table End -->
     <script>
-        $(document).ready(function() {
-            $('#staffReceived').DataTable({
-                responsive: true,
-                autoWidth: false,
-                paging: true, // Enable pagination
-                searching: true, // Enable search
-                ordering: true, // Enable sorting
-                lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
-                columnDefs: [{
-                        orderable: false,
-                        targets: -1
-                    } // Disable sorting on last column (Actions)
-                ],
-                language: {
-                    searchPlaceholder: "Search here...",
-                    zeroRecords: "No matching records found",
-                    lengthMenu: "Show entries",
-                    // info: "Showing START to END of TOTAL entries",
-                    infoFiltered: "(filtered from MAX total entries)",
-                }
-            });
+    $(document).ready(function() {
+        $('#staffReceived').DataTable({
+            processing: true,
+            serverSide: true,
+            responsive: true,
+            autoWidth: false,
+            ajax: {
+                url: '{{ route('staff.documents.received.data') }}',
+                type: 'GET'
+            },
+            columns: [
+                { data: 'index', name: 'index', orderable: false, searchable: false },
+                { data: 'doc_no', name: 'documents.docuent_number' },
+                { data: 'subject', name: 'documents.title' },
+                { data: 'submitted_by', name: 'sender' },
+                { data: 'status', name: 'documents.status' },
+                { data: 'date', name: 'document_movements.updated_at' }
+            ],
+            order: [[5, 'desc']],
+            lengthMenu: [10, 25, 50, 100],
+            language: {
+                searchPlaceholder: 'Search here...',
+                zeroRecords: 'No matching records found',
+                lengthMenu: 'Show entries'
+            }
         });
+    });
     </script>
 @endsection
