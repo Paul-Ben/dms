@@ -43,29 +43,9 @@
                             <th scope="col">Action</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @forelse ($receipts as $key => $receipt)
-                            <tr>
-                                <td>{{ $key + 1 }}</td>
-                                <td>{{$receipt->document_no}}</td>
-                                <td>{{$receipt->reference}}</td>
-                                <td>{{$receipt->transAmount}}</td>
-                                <td>{{$receipt->transDate}}</td>
-                                <td>
-                                    <a href="{{route('receipt.show', $receipt)}}" target="__blank">View</a>
-                                </td>
-                            </tr>
-                            @empty
-                            <tr class="text-center">
-                                <td colspan="6">No Data Found</td>
-                                </tr>
-                        @endforelse
-
-                    </tbody>
+                    <tbody></tbody>
                 </table>
-                <div class="pt-4">
-                    {{$receipts->links('pagination::bootstrap-5')}}
-                </div>
+                <div class="pt-4"></div>
                 
             </div>
         </div>
@@ -74,22 +54,27 @@
     <script>
         $(document).ready(function() {
             $('#userReceipts').DataTable({
+                processing: true,
+                serverSide: true,
                 responsive: true,
                 autoWidth: false,
-                paging: true, // Enable pagination
-                searching: true, // Enable search
-                ordering: true, // Enable sorting
-                lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
-                columnDefs: [{
-                        orderable: false,
-                        targets: -1
-                    } // Disable sorting on last column (Actions)
+                ajax: {
+                    url: "{{ route('user.receipts.data') }}",
+                    type: 'GET'
+                },
+                columns: [
+                    { data: 'index', name: 'index', orderable: false },
+                    { data: 'doc_no', name: 'payments.document_no' },
+                    { data: 'reference', name: 'payments.reference' },
+                    { data: 'amount', name: 'payments.transAmount' },
+                    { data: 'date', name: 'payments.transDate' },
+                    { data: 'action', name: 'action', orderable: false, searchable: false },
                 ],
+                order: [[0, 'asc']],
                 language: {
                     searchPlaceholder: "Search here...",
                     zeroRecords: "No matching records found",
                     lengthMenu: "Show entries",
-                    // info: "Showing START to END of TOTAL entries",
                     infoFiltered: "(filtered from MAX total entries)",
                 }
             });
