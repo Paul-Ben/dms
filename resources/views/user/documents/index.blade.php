@@ -51,32 +51,7 @@
                             <th scope="col">Action</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @forelse ($documents as $key => $document)
-                            <tr>
-                                <td>{{ $key + 1 }}</td>
-                                <td><a target="_blank" href="{{$document->file_path}}">{{$document->docuent_number}}</a></td>
-                                <td>{{$document->title}}</td>
-                                {{-- <td></td> --}}
-                                <td>Processing</td>
-                                <td>
-                                    <div class="nav-item">
-                                        <a target="_blank" href="{{ $document->file_path}}" class="nav-link">View</a>
-                        
-                                    </div>
-                                </td>
-                            </tr>
-                            @empty
-                            <tr class="text-center">
-                                <td >No Data Found</td>
-                                <td >No Data Found</td>
-                                <td >No Data Found</td>
-                                <td >No Data Found</td>
-                                <td >No Data Found</td>
-                                </tr>
-                        @endforelse
-
-                    </tbody>
+                    <tbody></tbody>
                 </table>
                 <div class="pt-4">
                     
@@ -89,22 +64,26 @@
     <script>
         $(document).ready(function() {
             $('#userDocs').DataTable({
+                processing: true,
+                serverSide: true,
                 responsive: true,
                 autoWidth: false,
-                paging: true, // Enable pagination
-                searching: true, // Enable search
-                ordering: true, // Enable sorting
-                lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
-                columnDefs: [{
-                        orderable: false,
-                        targets: -1
-                    } // Disable sorting on last column (Actions)
+                ajax: {
+                    url: "{{ route('user.documents.index.data') }}",
+                    type: 'GET'
+                },
+                columns: [
+                    { data: 'index', name: 'index', orderable: false },
+                    { data: 'doc_no', name: 'documents.docuent_number' },
+                    { data: 'title', name: 'documents.title' },
+                    { data: 'status', name: 'documents.status' },
+                    { data: 'action', name: 'action', orderable: false, searchable: false },
                 ],
+                order: [[0, 'asc']],
                 language: {
                     searchPlaceholder: "Search here...",
                     zeroRecords: "No matching records found",
                     lengthMenu: "Show entries",
-                    // info: "Showing START to END of TOTAL entries",
                     infoFiltered: "(filtered from MAX total entries)",
                 }
             });
