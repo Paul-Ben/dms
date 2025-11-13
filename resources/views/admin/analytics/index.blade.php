@@ -50,12 +50,12 @@
                                 <div class="h5 mb-0">{{ number_format($userCount) }}</div>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        {{-- <div class="col-md-3">
                             <div class="bg-white rounded p-3 border">
                                 <div class="text-muted small">Logins</div>
                                 <div class="h5 mb-0">{{ number_format($totalLogins) }}</div>
                             </div>
-                        </div>
+                        </div> --}}
                         <div class="col-md-3">
                             <div class="bg-white rounded p-3 border">
                                 <div class="text-muted small">Actions</div>
