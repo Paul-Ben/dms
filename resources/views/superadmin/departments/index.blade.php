@@ -48,33 +48,7 @@
                                 <th scope="col">Action</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @foreach ($departments as $key => $department)
-                                <tr>
-                                    <td>{{ $key + 1 }}</td>
-                                    <td>{{ $department->name }}</td>
-                                    <td>{{ $department->email }}</td>
-                                    <td>{{ $department->phone }}</td>
-                                    <td>{{ $department->status }}</td>
-                                    <td>
-                                        <div class="nav-item dropdown">
-                                            <a href="#" class="nav-link dropdown-toggle"
-                                                data-bs-toggle="dropdown">Details</a>
-                                            <div class="dropdown-menu">
-                                                <a href="{{route('department.edit', $department)}}" class="dropdown-item">Edit</a>
-                                                <form action="{{ route('department.delete', $department) }}" method="POST" onsubmit="return confirm('Are you sure?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                   
-                                                    <button class="dropdown-item" style="background-color: rgb(235, 78, 78)" type="submit">Delete</button>
-                                                </form> 
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @endforeach
-
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
                 {{-- <div class="mt-4">{{$departments->links('pagination::bootstrap-5')}}</div> --}}
@@ -82,25 +56,30 @@
         </div>
         <!-- Table End -->
         <script>
-            $(document).ready(function() {
+            $(function() {
                 $('#superDepartment').DataTable({
+                    processing: true,
+                    serverSide: true,
                     responsive: true,
                     autoWidth: false,
-                    paging: true, // Enable pagination
-                    searching: true, // Enable search
-                    ordering: true, // Enable sorting
-                    lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
-                    columnDefs: [{
-                            orderable: false,
-                            targets: -1
-                        } // Disable sorting on last column (Actions)
+                    ajax: {
+                        url: '{{ route('superadmin.departments.data') }}',
+                        type: 'GET'
+                    },
+                    columns: [
+                        { data: 'index', name: 'index', orderable: false, searchable: false },
+                        { data: 'name', name: 'name' },
+                        { data: 'email', name: 'email' },
+                        { data: 'phone', name: 'phone' },
+                        { data: 'status', name: 'status' },
+                        { data: 'action', name: 'action', orderable: false, searchable: false }
                     ],
+                    order: [[0, 'desc']],
+                    lengthMenu: [10, 25, 50, 100],
                     language: {
-                        searchPlaceholder: "Search here...",
-                        zeroRecords: "No matching records found",
-                        lengthMenu: "Show entries",
-                        // info: "Showing START to END of TOTAL entries",
-                        infoFiltered: "(filtered from MAX total entries)",
+                        searchPlaceholder: 'Search here...',
+                        zeroRecords: 'No matching records found',
+                        lengthMenu: 'Show entries'
                     }
                 });
             });
