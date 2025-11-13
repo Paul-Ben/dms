@@ -9,6 +9,7 @@
 /storage/*.key
 /vendor
 /lang
+/docs
 API_DOCUMENTATION.md
 API_ROUTES_DOCUMENTATION.md
 test_document.pdf
