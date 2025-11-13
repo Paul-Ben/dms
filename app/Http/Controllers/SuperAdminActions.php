@@ -65,6 +65,479 @@ class SuperAdminActions extends Controller
 
 
     /**
+     * Server-side DataTables: Departments (Superadmin)
+     */
+    public function departmentsData(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user || $user->default_role !== 'superadmin') {
+            return response()->json([
+                'draw' => intval($request->input('draw')),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => 'Unauthorized',
+            ], 200);
+        }
+
+        $columns = [
+            0 => 'id',
+            1 => 'name',
+            2 => 'email',
+            3 => 'phone',
+            4 => 'status',
+        ];
+
+        $start = intval($request->input('start', 0));
+        $length = intval($request->input('length', 10));
+        $searchValue = $request->input('search.value');
+        $orderColumnIndex = intval($request->input('order.0.column', 0));
+        $orderDir = $request->input('order.0.dir', 'asc');
+        $orderColumn = $columns[$orderColumnIndex] ?? 'id';
+
+        $baseQuery = TenantDepartment::query();
+        $recordsTotal = (clone $baseQuery)->count();
+
+        if ($searchValue) {
+            $like = "%$searchValue%";
+            $baseQuery->where(function ($q) use ($like) {
+                $q->where('name', 'like', $like)
+                  ->orWhere('email', 'like', $like)
+                  ->orWhere('phone', 'like', $like)
+                  ->orWhere('status', 'like', $like);
+            });
+        }
+
+        $baseQuery->orderBy($orderColumn, $orderDir);
+        $recordsFiltered = (clone $baseQuery)->count();
+
+        $rows = $baseQuery
+            ->skip($start)
+            ->take($length)
+            ->get();
+
+        $indexStart = $start + 1;
+        $csrf = csrf_token();
+        $data = [];
+        foreach ($rows as $i => $department) {
+            $action = '<div class="nav-item dropdown">'
+                .'<a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Details</a>'
+                .'<div class="dropdown-menu">'
+                .'<a href="' . route('department.edit', $department) . '" class="dropdown-item">Edit</a>'
+                .'<form action="' . route('department.delete', $department) . '" method="POST" onsubmit="return confirm(\'Are you sure?\');" style="display:inline">'
+                .'<input type="hidden" name="_token" value="' . $csrf . '">' . '<input type="hidden" name="_method" value="DELETE">'
+                .'<button class="dropdown-item" style="background-color: rgb(235, 78, 78)" type="submit">Delete</button>'
+                .'</form>'
+                .'</div>'
+                .'</div>';
+
+            $data[] = [
+                'index' => $indexStart + $i,
+                'name' => e($department->name),
+                'email' => e($department->email ?? ''),
+                'phone' => e($department->phone ?? ''),
+                'status' => e($department->status ?? ''),
+                'action' => $action,
+            ];
+        }
+
+        return response()->json([
+            'draw' => intval($request->input('draw')),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ]);
+    }
+
+    /**
+     * Server-side DataTables: Organisations (Tenants) for Superadmin
+     */
+    public function organisationsData(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user || $user->default_role !== 'superadmin') {
+            return response()->json([
+                'draw' => intval($request->input('draw')),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => 'Unauthorized',
+            ], 200);
+        }
+
+        $columns = [
+            0 => 'id',
+            1 => 'name',
+            2 => 'email',
+            3 => 'phone',
+            4 => 'status',
+        ];
+
+        $start = intval($request->input('start', 0));
+        $length = intval($request->input('length', 10));
+        $searchValue = $request->input('search.value');
+        $orderColumnIndex = intval($request->input('order.0.column', 0));
+        $orderDir = $request->input('order.0.dir', 'asc');
+        $orderColumn = $columns[$orderColumnIndex] ?? 'id';
+
+        $baseQuery = Tenant::query();
+        $recordsTotal = (clone $baseQuery)->count();
+
+        if ($searchValue) {
+            $like = "%$searchValue%";
+            $baseQuery->where(function ($q) use ($like) {
+                $q->where('name', 'like', $like)
+                  ->orWhere('email', 'like', $like)
+                  ->orWhere('phone', 'like', $like)
+                  ->orWhere('status', 'like', $like);
+            });
+        }
+
+        $baseQuery->orderBy($orderColumn, $orderDir);
+        $recordsFiltered = (clone $baseQuery)->count();
+
+        $rows = $baseQuery
+            ->skip($start)
+            ->take($length)
+            ->get();
+
+        $indexStart = $start + 1;
+        $csrf = csrf_token();
+        $data = [];
+        foreach ($rows as $i => $tenant) {
+            $nameLink = '<a href="' . route('organisation.departments', $tenant) . '">' . e($tenant->name) . '</a>';
+
+            $action = '<div class="nav-item dropdown">'
+                .'<a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Details</a>'
+                .'<div class="dropdown-menu">'
+                .'<a href="' . route('organisation.edit', $tenant) . '" class="dropdown-item">Edit</a>'
+                .'<form action="' . route('organisation.delete', $tenant) . '" method="POST" onsubmit="return confirm(\'Are you sure?\');" style="display:inline">'
+                .'<input type="hidden" name="_token" value="' . $csrf . '">' . '<input type="hidden" name="_method" value="DELETE">'
+                .'<button class="dropdown-item" style="background-color: rgb(235, 78, 78)" type="submit">Delete</button>'
+                .'</form>'
+                .'</div>'
+                .'</div>';
+
+            $data[] = [
+                'index' => $indexStart + $i,
+                'name' => $nameLink,
+                'email' => e($tenant->email ?? ''),
+                'phone' => e($tenant->phone ?? ''),
+                'status' => e($tenant->status ?? ''),
+                'action' => $action,
+            ];
+        }
+
+        return response()->json([
+            'draw' => intval($request->input('draw')),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ]);
+    }
+
+    /**
+     * Server-side DataTables: User Manager (Superadmin)
+     */
+    public function usermanagerData(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user || $user->default_role !== 'superadmin') {
+            return response()->json([
+                'draw' => intval($request->input('draw')),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => 'Unauthorized',
+            ], 200);
+        }
+
+        $columns = [
+            0 => 'id',
+            1 => 'users.name',
+            2 => 'tenants.name', // shown under "Designation" in current UI
+            3 => 'tenant_departments.name',
+        ];
+
+        $start = intval($request->input('start', 0));
+        $length = intval($request->input('length', 10));
+        $searchValue = $request->input('search.value');
+        $orderColumnIndex = intval($request->input('order.0.column', 0));
+        $orderDir = $request->input('order.0.dir', 'asc');
+        $orderColumn = $columns[$orderColumnIndex] ?? 'id';
+
+        $baseQuery = UserDetails::query()
+            ->with(['user', 'tenant', 'tenant_department']);
+
+        $recordsTotal = (clone $baseQuery)->count();
+
+        if ($searchValue) {
+            $like = "%$searchValue%";
+            $baseQuery->where(function ($q) use ($like) {
+                $q->where('designation', 'like', $like)
+                  ->orWhereHas('user', function ($uq) use ($like) {
+                      $uq->where('name', 'like', $like);
+                  })
+                  ->orWhereHas('tenant', function ($tq) use ($like) {
+                      $tq->where('name', 'like', $like);
+                  })
+                  ->orWhereHas('tenant_department', function ($dq) use ($like) {
+                      $dq->where('name', 'like', $like);
+                  });
+            });
+        }
+
+        // Sorting
+        if ($orderColumn === 'users.name') {
+            $baseQuery->leftJoin('users', 'users.id', '=', 'user_details.user_id')
+                      ->orderBy('users.name', $orderDir)
+                      ->select('user_details.*');
+        } elseif ($orderColumn === 'tenants.name') {
+            $baseQuery->leftJoin('tenants', 'tenants.id', '=', 'user_details.tenant_id')
+                      ->orderBy('tenants.name', $orderDir)
+                      ->select('user_details.*');
+        } elseif ($orderColumn === 'tenant_departments.name') {
+            $baseQuery->leftJoin('tenant_departments', 'tenant_departments.id', '=', 'user_details.tenant_department_id')
+                      ->orderBy('tenant_departments.name', $orderDir)
+                      ->select('user_details.*');
+        } else {
+            $baseQuery->orderBy($orderColumn, $orderDir);
+        }
+
+        $recordsFiltered = (clone $baseQuery)->count();
+
+        $rows = $baseQuery
+            ->skip($start)
+            ->take($length)
+            ->get();
+
+        $indexStart = $start + 1;
+        $csrf = csrf_token();
+        $data = [];
+        foreach ($rows as $i => $ud) {
+            $u = $ud->user;
+            $tenant = $ud->tenant; // shown under Designation column in current UI
+            $dept = $ud->tenant_department;
+
+            $action = '<div class="nav-item dropdown">'
+                .'<a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Details</a>'
+                .'<div class="dropdown-menu">'
+                .'<a href="' . route('user.edit', $ud) . '" class="dropdown-item">Edit</a>';
+
+            if (optional($u)->is_active) {
+                $action .= '<form method="POST" action="' . route('user.deactivate', optional($u)->id) . '" style="display: inline;" onsubmit="return confirm(\'Are you sure you want to deactivate this user? They will not be able to log in until reactivated.\')">'
+                        .'<input type="hidden" name="_token" value="' . $csrf . '">' . '<input type="hidden" name="_method" value="PATCH">'
+                        .'<button type="submit" class="dropdown-item text-warning" style="border: none; background: none; text-align: left; width: 100%;">Deactivate</button>'
+                        .'</form>';
+            } else {
+                $action .= '<form method="POST" action="' . route('user.activate', optional($u)->id) . '" style="display: inline;" onsubmit="return confirm(\'Are you sure you want to activate this user?\')">'
+                        .'<input type="hidden" name="_token" value="' . $csrf . '">' . '<input type="hidden" name="_method" value="PATCH">'
+                        .'<button type="submit" class="dropdown-item text-success" style="border: none; background: none; text-align: left; width: 100%;">Activate</button>'
+                        .'</form>';
+            }
+
+            if (is_null(optional($u)->email_verified_at)) {
+                $action .= '<form method="POST" action="' . route('user.verify', optional($u)->id) . '" style="display: inline;" onsubmit="return confirm(\'Verify this account?\')">'
+                        .'<input type="hidden" name="_token" value="' . $csrf . '">' . '<input type="hidden" name="_method" value="PATCH">'
+                        .'<button type="submit" class="dropdown-item" style="border: none; background: none; text-align: left; width: 100%;">Verify Account</button>'
+                        .'</form>';
+            } else {
+                $action .= '<span class="dropdown-item text-muted">Verified</span>';
+            }
+
+            $action .= '</div></div>';
+
+            $data[] = [
+                'index' => $indexStart + $i,
+                'name' => '<a href="' . route('user.view', $ud) . '">' . e(optional($u)->name) . '</a>',
+                // Replicate current UI: "Designation" column shows organisation name
+                'designation' => e(optional($tenant)->name ?? ''),
+                'department' => e(optional($dept)->name ?? ($ud->designation ?? '')),
+                'action' => $action,
+            ];
+        }
+
+        return response()->json([
+            'draw' => intval($request->input('draw')),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ]);
+    }
+
+    /**
+     * Server-side DataTables: Visitor Activity (Superadmin)
+     */
+    public function visitorActivityData(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user || $user->default_role !== 'superadmin') {
+            return response()->json([
+                'draw' => intval($request->input('draw')),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => 'Unauthorized',
+            ], 200);
+        }
+
+        $columns = [
+            0 => 'id',
+            1 => 'users.name',
+            2 => 'ip_address',
+            3 => 'url',
+            4 => 'browser',
+            5 => 'device',
+            6 => 'created_at',
+        ];
+
+        $start = intval($request->input('start', 0));
+        $length = intval($request->input('length', 10));
+        $searchValue = $request->input('search.value');
+        $orderColumnIndex = intval($request->input('order.0.column', 0));
+        $orderDir = $request->input('order.0.dir', 'desc');
+        $orderColumn = $columns[$orderColumnIndex] ?? 'id';
+
+        $baseQuery = \App\Models\VisitorActivity::query()->with('user');
+        $recordsTotal = (clone $baseQuery)->count();
+
+        if ($searchValue) {
+            $like = "%$searchValue%";
+            $baseQuery->where(function ($q) use ($like) {
+                $q->where('ip_address', 'like', $like)
+                  ->orWhere('url', 'like', $like)
+                  ->orWhere('browser', 'like', $like)
+                  ->orWhere('device', 'like', $like)
+                  ->orWhereHas('user', function ($uq) use ($like) {
+                      $uq->where('name', 'like', $like);
+                  });
+            });
+        }
+
+        // Sorting
+        if ($orderColumn === 'users.name') {
+            $baseQuery->leftJoin('users', 'users.id', '=', 'visitor_activities.user_id')
+                      ->orderBy('users.name', $orderDir)
+                      ->select('visitor_activities.*');
+        } else {
+            $baseQuery->orderBy($orderColumn, $orderDir);
+        }
+
+        $recordsFiltered = (clone $baseQuery)->count();
+
+        $rows = $baseQuery
+            ->skip($start)
+            ->take($length)
+            ->get();
+
+        $indexStart = $start + 1;
+        $data = [];
+        foreach ($rows as $i => $activity) {
+            $userName = optional($activity->user)->name ?? 'Guest';
+            $url = $activity->url ?? 'N/A';
+            $urlShort = e(\Illuminate\Support\Str::limit($url, 20));
+            $urlAnchor = '<a href="#" title="' . e($url) . '">' . $urlShort . '</a>';
+
+            $data[] = [
+                'index' => $indexStart + $i,
+                'visitor_name' => e($userName),
+                'ip_address' => e($activity->ip_address ?? ''),
+                'url' => $urlAnchor,
+                'browser' => e($activity->browser ?? ''),
+                'device' => e($activity->device ?? 'N/A'),
+                'date' => e(optional($activity->created_at)->format('M j, Y g:i A')),
+            ];
+        }
+
+        return response()->json([
+            'draw' => intval($request->input('draw')),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ]);
+    }
+
+    /**
+     * Server-side DataTables: Designations (Superadmin)
+     */
+    public function designationsData(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user || $user->default_role !== 'superadmin') {
+            return response()->json([
+                'draw' => intval($request->input('draw')),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => 'Unauthorized',
+            ], 200);
+        }
+
+        $columns = [
+            0 => 'id',
+            1 => 'name',
+        ];
+
+        $start = intval($request->input('start', 0));
+        $length = intval($request->input('length', 10));
+        $searchValue = $request->input('search.value');
+        $orderColumnIndex = intval($request->input('order.0.column', 0));
+        $orderDir = $request->input('order.0.dir', 'asc');
+        $orderColumn = $columns[$orderColumnIndex] ?? 'id';
+
+        $baseQuery = Designation::query();
+        $recordsTotal = (clone $baseQuery)->count();
+
+        if ($searchValue) {
+            $like = "%$searchValue%";
+            $baseQuery->where(function ($q) use ($like) {
+                $q->where('name', 'like', $like);
+            });
+        }
+
+        $baseQuery->orderBy($orderColumn, $orderDir);
+        $recordsFiltered = (clone $baseQuery)->count();
+
+        $rows = $baseQuery
+            ->skip($start)
+            ->take($length)
+            ->get();
+
+        $indexStart = $start + 1;
+        $csrf = csrf_token();
+        $data = [];
+        foreach ($rows as $i => $designation) {
+            $action = '<div class="nav-item dropdown">'
+                .'<a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Details</a>'
+                .'<div class="dropdown-menu">'
+                .'<a href="' . route('designation.edit', $designation) . '" class="dropdown-item">Edit</a>'
+                .'<form action="' . route('designation.delete', $designation) . '" method="POST" onsubmit="return confirm(\'Are you sure?\');" style="display:inline">'
+                .'<input type="hidden" name="_token" value="' . $csrf . '">' . '<input type="hidden" name="_method" value="DELETE">'
+                .'<button class="dropdown-item" style="background-color: rgb(235, 78, 78)" type="submit">Delete</button>'
+                .'</form>'
+                .'</div>'
+                .'</div>';
+
+            $data[] = [
+                'index' => $indexStart + $i,
+                'name' => e($designation->name),
+                'action' => $action,
+            ];
+        }
+
+        return response()->json([
+            'draw' => intval($request->input('draw')),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ]);
+    }
+
+
+
+
+
+    /**
      * User management Actions Index/create/edit/show/delete
      */
     public function user_index(Request $request)
