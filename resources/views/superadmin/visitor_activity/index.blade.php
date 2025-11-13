@@ -38,33 +38,7 @@
                             <th scope="col">Date</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @forelse ($activities as $key => $activity)
-                            <tr>
-                                <td>{{ $key + 1 }}</td>
-                                <td>{{ $activity->user ? $activity->user->name : 'Guest' }}</td>
-                                <td>{{ $activity->ip_address }}</td>
-                                {{-- <td><a href="{{ $activity->url ?? 'N/A' }}" target="_blank">{{ $activity->url ?? 'N/A' }}</a></td> --}}
-                                <td>
-                                    <a href="#"
-                                        title="{{ $activity->url ?? 'N/A' }}">
-                                        {{ Str::limit($activity->url ?? 'N/A', 20) }}
-                                    </a>
-                                </td>
-                                <td>{{ $activity->browser }}</td>
-                                <td>{{ $activity->device ?? 'N/A' }}</td>
-                                {{-- <td>{{ $activity->country ?? 'N/A' }}</td> --}}
-                                {{-- <td>{{ $activity->region ?? 'N/A' }}</td>
-                                <td>{{ $activity->city ?? 'N/A' }}</td>
-                                <td>{{ $activity->method ?? 'N/A' }}</td> --}}
-                                <td>{{ $activity->created_at->format('M j, Y g:i A') }}</td>
-                            </tr>
-                        @empty
-                            <tr class="text-center">
-                                <td colspan="6">No Data Found</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
+                    <tbody></tbody>
                 </table>
                 {{-- {{ $activities->links() }} --}}
             </div>
@@ -72,12 +46,32 @@
     </div>
     <!-- Table End -->
     <script>
-        $(document).ready(function() {
+        $(function() {
             $('#visitorActivityTable').DataTable({
-                "order": [
-                    [0, "desc"]
-                ], // Optional: order by latest
-                "pageLength": 10
+                processing: true,
+                serverSide: true,
+                responsive: true,
+                autoWidth: false,
+                ajax: {
+                    url: '{{ route('superadmin.visitor.activity.data') }}',
+                    type: 'GET'
+                },
+                columns: [
+                    { data: 'index', name: 'index', orderable: false, searchable: false },
+                    { data: 'visitor_name', name: 'users.name' },
+                    { data: 'ip_address', name: 'ip_address' },
+                    { data: 'url', name: 'url', orderable: false },
+                    { data: 'browser', name: 'browser' },
+                    { data: 'device', name: 'device' },
+                    { data: 'date', name: 'created_at' }
+                ],
+                order: [[6, 'desc']],
+                lengthMenu: [10, 25, 50, 100],
+                language: {
+                    searchPlaceholder: 'Search here...',
+                    zeroRecords: 'No matching records found',
+                    lengthMenu: 'Show entries'
+                }
             });
         });
     </script>
