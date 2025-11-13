@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\VisitorActivity;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,10 +24,14 @@ class LogVisitorActivity
         $browser = $this->getBrowser($userAgent);
         $device = $this->getDevice($userAgent);
 
-        // Use a free IP geolocation API (e.g., ip-api.com)
-        $location = cache()->remember("ip-location-{$ip}", 60*60, function() use ($ip) {
-            $response = Http::get("http://ip-api.com/json/{$ip}");
-            return $response->json();
+        // Use a free IP geolocation API (e.g., ip-api.com), with defensive fallbacks
+        $location = cache()->remember("ip-location-{$ip}", 60*60, function () use ($ip) {
+            try {
+                $response = Http::timeout(5)->get("http://ip-api.com/json/{$ip}");
+                return $response->successful() ? $response->json() : [];
+            } catch (\Throwable $e) {
+                return [];
+            }
         });
 
         VisitorActivity::create([
@@ -37,7 +42,8 @@ class LogVisitorActivity
             'city' => $location['city'] ?? null,
             'browser' => $browser,
             'device' => $device,
-            'url' => $request->fullUrl(),
+            // Avoid overly long URLs (e.g., large query strings from DataTables)
+            'url' => Str::limit($request->url(), 255),
             'method' => $request->method(),
             'user_agent' => $userAgent,
         ]);
