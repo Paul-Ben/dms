@@ -53,41 +53,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($users as $key => $user)
-                            <tr>
-                                <td>{{ $key + 1 }}</td>
-                                <td><a href="{{ route('user.view', $user) }}">{{ $user->user->name }}</a></td>
-                                <td>{{ $user->designation }}</td>
-
-                                <td>{{ $user->tenant_department->name ?? '' }}</td>
-                                @role('IT Admin')
-                                <td>
-                                    <div class="nav-item dropdown">
-                                        <a href="#" class="nav-link dropdown-toggle"
-                                            data-bs-toggle="dropdown">Details</a>
-                                        <div class="dropdown-menu">
-                                            
-                                            <a href="{{ route('user.edit', $user) }}" class="dropdown-item">Edit</a>
-                                            @if($user->user->is_active)
-                                                <form method="POST" action="{{ route('user.deactivate', $user->user->id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to deactivate this user? They will not be able to log in until reactivated.')">
-                                                    @csrf
-                                                    @method('PATCH')
-                                                    <button type="submit" class="dropdown-item text-warning" style="border: none; background: none; text-align: left; width: 100%;">Deactivate</button>
-                                                </form>
-                                            @else
-                                                <form method="POST" action="{{ route('user.activate', $user->user->id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to activate this user?')">
-                                                    @csrf
-                                                    @method('PATCH')
-                                                    <button type="submit" class="dropdown-item text-success" style="border: none; background: none; text-align: left; width: 100%;">Activate</button>
-                                                </form>
-                                            @endif
-                                            
-                                        </div>
-                                    </div>
-                                </td>
-                                @endrole
-                            </tr>
-                        @endforeach
+                        
 
                     </tbody>
                 </table>
@@ -98,28 +64,34 @@
     <!-- Table End -->
     <script>
         $(document).ready(function() {
+            var columns = [
+                { data: 'index', name: 'index', orderable: false, searchable: false },
+                { data: 'name', name: 'users.name' },
+                { data: 'designation', name: 'designation' },
+                { data: 'department', name: 'tenant_departments.name' }
+            ];
+            @role('IT Admin')
+            columns.push({ data: 'action', name: 'action', orderable: false, searchable: false });
+            @endrole
+
             $('#adminUsersTable').DataTable({
+                processing: true,
+                serverSide: true,
                 responsive: true,
                 autoWidth: false,
-                paging: true, // Enable pagination
-                searching: true, // Enable search
-                ordering: true, // Enable sorting
-                lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
-                columnDefs: [{
-                        orderable: false,
-                        targets: -1
-                    } // Disable sorting on last column (Actions)
-                ],
+                ajax: {
+                    url: '{{ route('admin.users.data') }}',
+                    type: 'GET'
+                },
+                columns: columns,
+                order: [[1, 'asc']],
+                lengthMenu: [10, 25, 50, 100],
                 language: {
-                    searchPlaceholder: "Search here...",
-                    zeroRecords: "No matching records found",
-                    lengthMenu: "Show entries",
-                    // info: "Showing START to END of TOTAL entries",
-                    infoFiltered: "(filtered from MAX total entries)",
+                    searchPlaceholder: 'Search here...',
+                    zeroRecords: 'No matching records found',
+                    lengthMenu: 'Show entries'
                 }
             });
         });
-
-
     </script>
 @endsection
