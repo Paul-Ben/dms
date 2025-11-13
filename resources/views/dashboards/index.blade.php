@@ -243,6 +243,9 @@
                             <a href="{{ route('department.index') }}" class="nav-item nav-link"><i
                                     class="fa fa-file me-2"></i>Departments
                             </a>
+                            <a href="{{ route('admin.analytics.index') }}"
+                                class="nav-item nav-link {{ request()->routeIs('admin.analytics.index') ? 'active' : '' }}"><i
+                                    class="fa fa-chart-line me-2"></i>Analytics</a>
                         @endrole
                         @role('User')
                             <a href="{{ route('receipt.index') }}"
