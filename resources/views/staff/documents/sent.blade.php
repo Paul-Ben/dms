@@ -34,43 +34,7 @@
                             {{-- <th scope="col">Actions</th> --}}
                         </tr>
                     </thead>
-                    <tbody>
-                        @forelse ($sent_documents as $key => $sent)
-                            <tr>
-                                <td>{{ $key + 1 }}</td>
-                                <td><a href="{{ route('document.view', $sent) }}">
-                                    {{ $sent->document->docuent_number }}
-                                </a>
-                            </td>
-                                <td>{{$sent->document->title}}</td>
-                                <td>
-                                    {{$mda[0]->designation}}, {{$mda[0]->tenant_department->name}} <br>
-                                    <span>{{$mda[0]->tenant->code}}</span>
-                                    <span></span>
-                                </td>
-                                {{-- <td>{{$sent->sender->userDetail->designation}}</td> --}}
-                                <td>
-                                    {{ $sent->updated_at->format('M j, Y g:i A') }}
-                                    {{-- <a href="{{route('document.view_sent', $sent)}}" class="nav-item">View</a> --}}
-                                </td>
-                                {{-- <td>
-                                    <a href="{{ route('folders.select') }}" 
-                                       class="btn btn-sm btn-primary"
-                                       onclick="event.preventDefault(); document.getElementById('add-to-folder-form-{{ $sent->document->id }}').submit();">
-                                        Add to Folder
-                                    </a>
-                                </td> --}}
-                            </tr>
-                            @empty
-                            <tr class="text-center">
-                                <td></td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                </tr>
-                        @endforelse
-                    </tbody>
+                    <tbody></tbody>
                 </table>
             </div>
             {{-- @if($sent_documents->count() > 0)
@@ -82,27 +46,31 @@
     </div>
     <!-- Table End -->
     <script>
-        $(document).ready(function() {
-            $('#staffSent').DataTable({
-                responsive: true,
-                autoWidth: false,
-                paging: true, // Enable pagination
-                searching: true, // Enable search
-                ordering: true, // Enable sorting
-                lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
-                columnDefs: [{
-                        orderable: false,
-                        targets: -1
-                    } // Disable sorting on last column (Actions)
-                ],
-                language: {
-                    searchPlaceholder: "Search here...",
-                    zeroRecords: "No matching records found",
-                    lengthMenu: "Show entries",
-                    // info: "Showing START to END of TOTAL entries",
-                    infoFiltered: "(filtered from MAX total entries)",
-                }
-            });
+    $(document).ready(function() {
+        $('#staffSent').DataTable({
+            processing: true,
+            serverSide: true,
+            responsive: true,
+            autoWidth: false,
+            ajax: {
+                url: '{{ route('staff.documents.sent.data') }}',
+                type: 'GET'
+            },
+            columns: [
+                { data: 'index', name: 'index', orderable: false, searchable: false },
+                { data: 'doc_no', name: 'documents.docuent_number' },
+                { data: 'subject', name: 'documents.title' },
+                { data: 'sent_to', name: 'recipient_details' },
+                { data: 'date', name: 'document_movements.updated_at' }
+            ],
+            order: [[4, 'desc']],
+            lengthMenu: [10, 25, 50, 100],
+            language: {
+                searchPlaceholder: 'Search here...',
+                zeroRecords: 'No matching records found',
+                lengthMenu: 'Show entries'
+            }
         });
+    });
     </script>
 @endsection
