@@ -536,26 +536,29 @@
 </body>
 <script>
     $(document).ready(function() {
-        $('#visitLogsTable').DataTable({
-            responsive: true,
-            autoWidth: false,
-            paging: true, // Enable pagination
-            searching: true, // Enable search
-            ordering: true, // Enable sorting
-            lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
-            columnDefs: [{
-                    orderable: false,
-                    targets: -1
-                } // Disable sorting on last column (Actions)
-            ],
-            language: {
-                searchPlaceholder: "Search here...",
-                zeroRecords: "No matching records found",
-                lengthMenu: "Show entries",
-                // info: "Showing START to END of TOTAL entries",
-                infoFiltered: "(filtered from MAX total entries)",
-            }
-        });
+        // Guard against double initialization and only init if the table exists
+        if ($('#visitLogsTable').length && !$.fn.dataTable.isDataTable('#visitLogsTable')) {
+            $('#visitLogsTable').DataTable({
+                responsive: true,
+                autoWidth: false,
+                paging: true, // Enable pagination
+                searching: true, // Enable search
+                ordering: true, // Enable sorting
+                lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
+                columnDefs: [{
+                        orderable: false,
+                        targets: -1
+                    } // Disable sorting on last column (Actions)
+                ],
+                language: {
+                    searchPlaceholder: "Search here...",
+                    zeroRecords: "No matching records found",
+                    lengthMenu: "Show entries",
+                    // info: "Showing START to END of TOTAL entries",
+                    infoFiltered: "(filtered from MAX total entries)",
+                }
+            });
+        }
     });
 </script>
 
