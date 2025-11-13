@@ -11,6 +11,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FolderController;
 use App\Http\Controllers\VisitorActivityController;
+use App\Http\Controllers\Admin\DocumentController as AdminDocumentController;
+use App\Http\Controllers\Admin\DepartmentController as AdminDepartmentController;
+use App\Http\Controllers\Admin\UserManagerController as AdminUserManagerController;
+use App\Http\Controllers\User\DocumentController as UserDocumentController;
+use App\Http\Controllers\User\ReceiptController as UserReceiptController;
 
 /*
 |--------------------------------------------------------------------------
@@ -112,6 +117,7 @@ Route::get('/users/search', [SearchController::class, 'searchUser'])->name('sear
     Route::get('/superadmin/designations', [SuperAdminActions::class, 'designationIndex'])->name('designation.index');
     Route::get('/superadmin/designations/create', [SuperAdminActions::class, 'designationCreate'])->name('designation.create');
     Route::post('/superadmin/designations/create', [SuperAdminActions::class, 'designationStore'])->name('designation.store');
+    Route::get('/superadmin/designations/data', [SuperAdminActions::class, 'designationsData'])->name('superadmin.designations.data');
     Route::get('/superadmin/designations/{designation}/edit', [SuperAdminActions::class, 'designationEdit'])->name('designation.edit');
     Route::put('/superadmin/designations/{designation}/edit', [SuperAdminActions::class, 'designationUpdate'])->name('designation.update');
     Route::delete('/superadmin/{designation}/delete', [SuperAdminActions::class, 'designationDestroy'])->name('designation.delete');
@@ -139,6 +145,33 @@ Route::get('/organisations/search', [SearchController::class, 'searchOrg'])->nam
 
     /**Document management related links */
     Route::get('/document', [SuperAdminActions::class, 'document_index'])->name('document.index');
+
+    // Admin documents DataTables server-side endpoint
+    Route::get('/admin/documents/data', [AdminDocumentController::class, 'data'])->name('admin.documents.data');
+    Route::get('/admin/documents/received/data', [AdminDocumentController::class, 'receivedData'])->name('admin.documents.received.data');
+    Route::get('/admin/documents/sent/data', [AdminDocumentController::class, 'sentData'])->name('admin.documents.sent.data');
+    // User documents DataTables server-side endpoints
+    Route::get('/user/documents/index/data', [UserDocumentController::class, 'indexData'])->name('user.documents.index.data');
+    Route::get('/user/documents/received/data', [UserDocumentController::class, 'receivedData'])->name('user.documents.received.data');
+    Route::get('/user/documents/sent/data', [UserDocumentController::class, 'sentData'])->name('user.documents.sent.data');
+    // Staff documents DataTables server-side endpoints
+    Route::get('/staff/documents/index/data', [\App\Http\Controllers\Staff\DocumentController::class, 'indexData'])->name('staff.documents.index.data');
+    Route::get('/staff/documents/received/data', [\App\Http\Controllers\Staff\DocumentController::class, 'receivedData'])->name('staff.documents.received.data');
+
+    // Superadmin DataTables server-side endpoints
+    Route::get('/superadmin/departments/data', [SuperAdminActions::class, 'departmentsData'])->name('superadmin.departments.data');
+    Route::get('/superadmin/organisations/data', [SuperAdminActions::class, 'organisationsData'])->name('superadmin.organisations.data');
+    Route::get('/superadmin/usermanager/data', [SuperAdminActions::class, 'usermanagerData'])->name('superadmin.usermanager.data');
+    Route::get('/superadmin/visitor-activity/data', [SuperAdminActions::class, 'visitorActivityData'])->name('superadmin.visitor.activity.data');
+    Route::get('/staff/documents/sent/data', [\App\Http\Controllers\Staff\DocumentController::class, 'sentData'])->name('staff.documents.sent.data');
+    // Staff memos DataTables server-side endpoints
+    Route::get('/staff/memo/index/data', [\App\Http\Controllers\Staff\MemoController::class, 'indexData'])->name('staff.memo.index.data');
+    Route::get('/staff/memo/received/data', [\App\Http\Controllers\Staff\MemoController::class, 'receivedData'])->name('staff.memo.received.data');
+    Route::get('/staff/memo/sent/data', [\App\Http\Controllers\Staff\MemoController::class, 'sentData'])->name('staff.memo.sent.data');
+    // Admin departments DataTables server-side endpoint
+    Route::get('/admin/departments/data', [AdminDepartmentController::class, 'data'])->name('admin.departments.data');
+    // Admin users DataTables server-side endpoint
+    Route::get('/admin/users/data', [AdminUserManagerController::class, 'data'])->name('admin.users.data');
     Route::get('/document/create', [SuperAdminActions::class, 'document_create'])->name('document.create');
     Route::post('/document/create', [SuperAdminActions::class, 'document_store'])->name('document.store');
     Route::get('/document/sent', [SuperAdminActions::class, 'sent_documents'])->name('document.sent');
@@ -184,6 +217,8 @@ Route::get('/organisations/search', [SearchController::class, 'searchOrg'])->nam
     Route::get('/document/receipts', [SuperAdminActions::class, 'receipt_index'])->name('receipt.index');
     Route::get('/document/{receipt}/receipt', [SuperadminActions::class, 'show_receipt'])->name('receipt.show');
     Route::get('/download-receipt', [SuperadminActions::class, 'downloadReceipt'])->name('download.receipt');
+    // User receipts DataTables server-side endpoint
+    Route::get('/document/receipts/data', [UserReceiptController::class, 'indexData'])->name('user.receipts.data');
 });
 
 // Folder Management Routes
