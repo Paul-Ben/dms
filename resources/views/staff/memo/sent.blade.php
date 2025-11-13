@@ -33,37 +33,7 @@
                             <th scope="col" >Date</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @forelse ($sent_documents as $key => $sent)
-                            <tr>
-                                <td>{{ $key + 1 }}</td>
-                                <td><a href="{{ route('memo.view', $sent->memo->id) }}">
-                                    {{ $sent->memo->docuent_number }}
-                                </a>
-                            </td>
-                                <td>{{$sent->memo->title}}</td>
-                                <td>
-                                    {{$sent->recipient_details[0]->userDetail->designation}}, <br>
-                                    @if ($sent->recipient_details[0]->userDetail->tenant->name)
-                                         <span>{{$sent->recipient_details[0]->userDetail->tenant->name}}</span>
-                                    @endif
-                                </td>
-                                <td>{{$sent->updated_at->format('M j, Y g:i A')}}</td>
-                                {{-- <td>
-                                    <a href="{{route('document.view_sent', $sent)}}" class="nav-item">View</a>
-                                </td> --}}
-                            </tr>
-                            @empty
-                            <tr class="text-center">
-                                <td></td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                </tr>
-                        @endforelse
-
-                    </tbody>
+                    <tbody></tbody>
                 </table>
             </div>
             {{-- @if($sent_documents->count() > 0)
@@ -77,23 +47,27 @@
     <script>
         $(document).ready(function() {
             $('#staffMemoSent').DataTable({
+                processing: true,
+                serverSide: true,
                 responsive: true,
                 autoWidth: false,
-                paging: true, // Enable pagination
-                searching: true, // Enable search
-                ordering: true, // Enable sorting
-                lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
-                columnDefs: [{
-                        orderable: false,
-                        targets: -1
-                    } // Disable sorting on last column (Actions)
+                ajax: {
+                    url: '{{ route('staff.memo.sent.data') }}',
+                    type: 'GET'
+                },
+                columns: [
+                    { data: 'index', name: 'index', orderable: false, searchable: false },
+                    { data: 'doc_no', name: 'memos.docuent_number' },
+                    { data: 'subject', name: 'memos.title' },
+                    { data: 'sent_to', name: 'recipient_details' },
+                    { data: 'date', name: 'memo_movements.updated_at' }
                 ],
+                order: [[4, 'desc']],
+                lengthMenu: [10, 25, 50, 100],
                 language: {
-                    searchPlaceholder: "Search here...",
-                    zeroRecords: "No matching records found",
-                    lengthMenu: "Show entries",
-                    // info: "Showing START to END of TOTAL entries",
-                    infoFiltered: "(filtered from MAX total entries)",
+                    searchPlaceholder: 'Search here...',
+                    zeroRecords: 'No matching records found',
+                    lengthMenu: 'Show entries'
                 }
             });
         });
