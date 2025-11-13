@@ -33,33 +33,7 @@
                             <th scope="col">Date</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @forelse ($received_documents as $key => $received)
-                            <tr>
-                                <td>{{ $key+1}}</td>
-                                <td><a href="{{route('memo.view', $received->memo->id)}}">
-                                    {{$received->memo->docuent_number}}
-                                </a></td>
-                                <td>{{$received->memo->title}}</td>
-                                <td>{{$received->sender_details->name}}</td>
-                                <td>{{$received->memo->status}}</td>
-                                <td>
-                                    {{$received->updated_at->format('M j, Y g:i A')}}
-                                    {{-- <a href="{{route('document.view', $received)}}" class="nav-item">View</a> --}}
-                                </td>
-                            </tr>
-                            @empty
-                            <tr class="text-center">
-                                <td></td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                <td>No Data Found</td>
-                                </tr>
-                        @endforelse
-
-                    </tbody>
+                    <tbody></tbody>
                 </table>
             </div>
         </div>
@@ -68,23 +42,28 @@
     <script>
         $(document).ready(function() {
             $('#staffMemoReceived').DataTable({
+                processing: true,
+                serverSide: true,
                 responsive: true,
                 autoWidth: false,
-                paging: true, // Enable pagination
-                searching: true, // Enable search
-                ordering: true, // Enable sorting
-                lengthMenu: [10, 25, 50, 100], // Dropdown for showing entries
-                columnDefs: [{
-                        orderable: false,
-                        targets: -1
-                    } // Disable sorting on last column (Actions)
+                ajax: {
+                    url: '{{ route('staff.memo.received.data') }}',
+                    type: 'GET'
+                },
+                columns: [
+                    { data: 'index', name: 'index', orderable: false, searchable: false },
+                    { data: 'doc_no', name: 'memos.docuent_number' },
+                    { data: 'subject', name: 'memos.title' },
+                    { data: 'sent_by', name: 'sender.name' },
+                    { data: 'status', name: 'memos.status' },
+                    { data: 'date', name: 'memo_movements.updated_at' }
                 ],
+                order: [[5, 'desc']],
+                lengthMenu: [10, 25, 50, 100],
                 language: {
-                    searchPlaceholder: "Search here...",
-                    zeroRecords: "No matching records found",
-                    lengthMenu: "Show entries",
-                    // info: "Showing START to END of TOTAL entries",
-                    infoFiltered: "(filtered from MAX total entries)",
+                    searchPlaceholder: 'Search here...',
+                    zeroRecords: 'No matching records found',
+                    lengthMenu: 'Show entries'
                 }
             });
         });
