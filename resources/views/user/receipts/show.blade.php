@@ -1,220 +1,199 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="">
-    <meta name="author" content="">
     <title>DMS Receipt</title>
-    <link rel="stylesheet" href="https://unpkg.com/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        .form_field_border {
-            border-color: #666 !important;
-            color: #333 !important;
-        }
-
-        .paid-watermark {
-            position: relative;
-            
-            overflow: hidden;
-            /* Prevent overflow of the watermark */
-        }
-
-        .paid-watermark::before {
-            content: "PAID";
-            /* Text for the watermark */
-            position: absolute;
-            /* Positioning the watermark */
-            top: 50%;
-            /* Center vertically */
-            left: 50%;
-            /* Center horizontally */
-            transform: translate(-50%, -50%);
-            /* Adjust for centering */
-            font-size: 48px;
-            /* Adjust font size */
-            font-weight: bold;
-            /* Make the text bold */
-            color: rgba(6, 7, 6, 0.5);
-            /* Light gray color with transparency */
-            pointer-events: none;
-            /* Ensure it doesn't interfere with table interactions */
-            z-index: 1;
-            /* Place it behind the table content */
-        }
-
-        @media print {
-            .paid-watermark::before {
-            content: "PAID";
-            /* Text for the watermark */
-            position: absolute;
-            /* Positioning the watermark */
-            top: 50%;
-            /* Center vertically */
-            left: 50%;
-            /* Center horizontally */
-            transform: translate(-50%, -50%);
-            /* Adjust for centering */
-            font-size: 48px;
-            /* Adjust font size */
-            font-weight: bold;
-            /* Make the text bold */
-            color: rgba(6, 7, 6, 0.5);
-            /* Light gray color with transparency */
-            pointer-events: none;
-            /* Ensure it doesn't interfere with table interactions */
-            z-index: 1;
-            /* Place it behind the table content */
-        }
-        }
+      body { background-color: #f8fafc; }
+      .receipt-card { border-radius: 1rem; }
+      .brand { height: 40px; }
+      .watermark { position: relative; }
+      .watermark::before {
+        content: 'PAID';
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        font-size: clamp(48px, 12vw, 100px);
+        color: rgba(25, 135, 84, 0.12); /* Bootstrap success color at 12% */
+        transform: rotate(-18deg);
+        pointer-events: none;
+        z-index: 0;
+      }
+      .watermark > * { position: relative; z-index: 1; }
+      @media print {
+        .no-print { display: none !important; }
+        .watermark::before { color: rgba(25, 135, 84, 0.18); }
+      }
     </style>
 </head>
-
 <body>
-    <!-- Invoice 1 - Bootstrap Brain Component -->
-    <section class="py-3 py-md-5">
-        <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-12 col-lg-9 col-xl-8 col-xxl-7">
-                    <div class="row gy-3 mb-3">
-                        <div class="col-12 text-center">
-                            <a class="d-block text-center" href="#!">
-                                <img src="{{ asset('BDIC Logo with name PNG.png') }}" class="img-fluid"
-                                    alt="BDIC DMS Logo" width="135" height="44">
-                            </a>
-                        </div>
-                        <div class="col-12">
-                            <h2 class="text-uppercase text-endx m-0 text-center">Payment Receipt</h2>
-                        </div>
-                    </div>
-                    <div class="row mb-3" style="background-color: #eeeee6;">
-                        <div class="col-12 col-sm-6 col-md-7">
-                            <h4>Received From</h4>
-                            <address>
-                                <strong>{{ $authUser->name }}</strong><br>
-                                Phone: {{ $user->userDetail->phone_number }}<br>
-                                Email: {{ $user->email }}
-                            </address>
-                        </div>
-                        <div class="col-12 col-sm-6 col-md-5">
-                            <h5 class="row">
-                                <span class="col-6">Receipt # </span>
-                                <span class="col-6 text-sm-end">RCT-001</span>
-                            </h5>
-                            <div class="row">
-                                <span class="col-6">Date:</span>
-                                <span
-                                    class="col-6 text-sm-end">{{ date('Y-m-d', strtotime($receipt->transDate)) }}</span>
-                                <span class="col-6">Time:</span>
-                                <span
-                                    class="col-6 text-sm-end">{{ date('H:i:s', strtotime($receipt->transDate)) }}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <h4>Being payment for:</h4>
-                    <div class="row mb-3">
-                        <div class="col-12">
-                            <div class="table-responsive paid-watermark">
-                                <table class="table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th scope="col" class="text-uppercase">Qty</th>
-                                            <th scope="col" class="text-uppercase">Description</th>
-                                            <th scope="col" class="text-uppercase text-end">Unit Price</th>
-                                            <th scope="col" class="text-uppercase text-end">Amount</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="table-group-divider">
-                                        <tr>
-                                            <th scope="row">1</th>
-                                            <td>Document Filling {{ $receipt->docuent_number }}</td>
-                                            <td class="text-end">N{{ $receipt->transAmount }}</td>
-                                            <td class="text-end">N{{ $receipt->transAmount }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="3" class="text-end">Subtotal</td>
-                                            <td class="text-end">N{{ $receipt->transAmount }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="3" class="text-end">Proccessing fee</td>
-                                            <td class="text-end">N{{ $receipt->transFee }}</td>
-                                        </tr>
-                                        <tr>
-                                            <th scope="row" colspan="3" class="text-uppercase text-end">Total</th>
-                                            <td class="text-end">N{{ $receipt->transTotal }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <p class="mb-3">Received with thanks...</p>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-12 text-end">
-                            <button type="button" class="btn btn-primary mb-3" onclick="downloadReceipt()">Download
-                                Receipt</button>
-                            <button type="button" class="btn btn-success mb-3" onclick="printReceipt()">Print
-                                Receipt</button>
-                        </div>
-                    </div>
-                </div>
+  <section class="container py-4 py-md-5">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-10 col-xl-9">
+        <div id="receipt" class="card shadow-sm receipt-card">
+          <div class="card-body p-4 p-md-5">
+            <div class="text-center mb-4">
+              <img src="{{ asset('BDIC Logo with name PNG.png') }}" alt="BDIC DMS Logo" class="brand" style="height: 40px; width: auto;">
+              <h2 class="mt-3 mb-0 fw-semibold">Payment Receipt</h2>
             </div>
+
+            <div class="row g-4 mb-4">
+              <div class="col-12 col-md-7">
+                <h6 class="text-uppercase text-muted mb-2">Received From</h6>
+                <div class="small">
+                  <div class="fw-semibold">{{ $authUser->name ?? 'User' }}</div>
+                  <div>Phone: {{ $user->userDetail->phone_number ?? '—' }}</div>
+                  <div>Email: {{ $user->email ?? '—' }}</div>
+                </div>
+              </div>
+              <div class="col-12 col-md-5">
+                <div class="row small gy-1">
+                  <div class="col-6 fw-semibold">Receipt #</div>
+                  <div class="col-6 text-end">{{ $receipt->reference ?? ('RCT-' . ($receipt->id ?? '000')) }}</div>
+                  <div class="col-6 fw-semibold">Date</div>
+                  <div class="col-6 text-end">{{ date('Y-m-d', strtotime($receipt->transDate)) }}</div>
+                  <div class="col-6 fw-semibold">Time</div>
+                  <div class="col-6 text-end">{{ date('H:i:s', strtotime($receipt->transDate)) }}</div>
+                </div>
+              </div>
+            </div>
+
+            <h6 class="text-uppercase text-muted mb-2">Being payment for</h6>
+            <div class="watermark rounded-3 border">
+              <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                  <thead class="table-light">
+                    <tr class="text-muted text-uppercase small">
+                      <th scope="col">Qty</th>
+                      <th scope="col">Description</th>
+                      <th scope="col" class="text-end">Unit Price</th>
+                      <th scope="col" class="text-end">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>1</td>
+                      <td>Document Filing {{ $receipt->document_no ?? ($receipt->docuent_number ?? '') }}</td>
+                      <td class="text-end">₦{{ number_format($receipt->transAmount, 2) }}</td>
+                      <td class="text-end">₦{{ number_format($receipt->transAmount, 2) }}</td>
+                    </tr>
+                    <tr>
+                      <td colspan="2"></td>
+                      <td class="text-end fw-semibold text-muted">Subtotal</td>
+                      <td class="text-end">₦{{ number_format($receipt->transAmount, 2) }}</td>
+                    </tr>
+                    <tr>
+                      <td colspan="2"></td>
+                      <td class="text-end fw-semibold text-muted">Processing fee</td>
+                      <td class="text-end">₦{{ number_format($receipt->transFee, 2) }}</td>
+                    </tr>
+                    <tr>
+                      <td colspan="2"></td>
+                      <td class="text-end fw-bold">Total</td>
+                      <td class="text-end fw-bold">₦{{ number_format($receipt->transTotal, 2) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <p class="mt-3 small text-muted">Received with thanks.</p>
+
+            <div class="row g-4 mt-2 align-items-start">
+              <div class="col-12 col-md-7">
+                <h6 class="text-uppercase text-muted mb-2">Payment Details</h6>
+                <div class="small">
+                  <div>Channel: {{ $receipt->payment_channel ?? 'Card' }}</div>
+                  <div>Gateway: {{ $receipt->gateway ?? 'Paystack' }}</div>
+                  <div>Transaction ID: {{ $receipt->transaction_id ?? ($receipt->reference ?? '—') }}</div>
+                  <div>Reference: {{ $receipt->reference ?? ('RCT-' . ($receipt->id ?? '000')) }}</div>
+                </div>
+              </div>
+              <div class="col-12 col-md-5">
+                <h6 class="text-uppercase text-muted mb-2">Verification</h6>
+                <div class="border rounded-3 p-3 d-flex gap-3 align-items-center">
+                  <div id="qr" class="flex-shrink-0" aria-label="Receipt QR code" role="img"></div>
+                  <div class="small text-muted">
+                    Scan to verify receipt details<br>
+                    Ref: {{ $receipt->reference ?? ('RCT-' . ($receipt->id ?? '000')) }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-4 no-print">
+              <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2" onclick="downloadReceipt()">
+                <i class="bi bi-download"></i>
+                <span>Download</span>
+              </button>
+              <button type="button" class="btn btn-success d-inline-flex align-items-center gap-2" onclick="printReceipt()">
+                <i class="bi bi-printer"></i>
+                <span>Print</span>
+              </button>
+            </div>
+
+          </div>
         </div>
-    </section>
+      </div>
+    </div>
+  </section>
 
-    <!-- Include html2pdf.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script>
+    function downloadReceipt() {
+      const source = document.getElementById('receipt').cloneNode(true);
+      // Clean any non-printable elements
+      source.querySelectorAll('.no-print').forEach(el => el.remove());
 
-    <script>
-        function downloadReceipt() {
-            // Select the content you want to convert to PDF
-            const element = document.querySelector('section').cloneNode(true);
+      const options = {
+        margin: 10,
+        filename: 'receipt-{{ $receipt->reference ?? ('RCT-' . ($receipt->id ?? '000')) }}.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().from(source).set(options).save();
+    }
 
-            // Remove the buttons from the cloned content
-            const buttons = element.querySelectorAll('button');
-            buttons.forEach(button => button.remove());
+    function printReceipt() {
+      const source = document.getElementById('receipt').cloneNode(true);
+      const w = window.open('', '', 'height=900,width=800');
+      w.document.write('<html><head><title>Print Receipt</title>');
+      w.document.write('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">');
+      w.document.write('<style>@media print { .watermark::before { color: rgba(25, 135, 84, 0.18); } .brand { height: 40px !important; width: auto !important; } }</style>');
+      w.document.write('</head><body>');
+      w.document.write(source.outerHTML);
+      w.document.write('</body></html>');
+      w.document.close();
+      w.focus();
+      w.print();
+    }
 
-            // Options for the PDF
-            const options = {
-                margin: 1,
-                filename: 'receipt.pdf',
-                image: {
-                    type: 'jpeg',
-                    quality: 0.98
-                },
-                html2canvas: {
-                    scale: 3
-                },
-                jsPDF: {
-                    unit: 'mm',
-                    format: 'a3',
-                    orientation: 'portrait'
-                }
-            };
-
-            // Generate and download the PDF
-            html2pdf().from(element).set(options).save();
-        }
-
-        function printReceipt() {
-            const printContent = document.querySelector('section').cloneNode(true);
-            const buttons = printContent.querySelectorAll('button');
-            buttons.forEach(button => button.remove());
-
-            const printWindow = window.open('', '', 'height=900,width=800');
-            printWindow.document.write('<html><head><title>Print Receipt</title>');
-            printWindow.document.write('<style>@media print { .paid-watermark::before { color: rgba(6, 7, 6, 0.5); } }</style>');
-            printWindow.document.write(
-                '<link rel="stylesheet" href="https://unpkg.com/bootstrap@5.3.3/dist/css/bootstrap.min.css">');
-            printWindow.document.write('</head><body>');
-            printWindow.document.write(printContent.innerHTML);
-            printWindow.document.write('</body></html>');
-            printWindow.document.close();
-            printWindow.print();
-        }
-    </script>
+    // Generate QR code with key receipt details
+    (function generateQR() {
+      var qrElem = document.getElementById('qr');
+      if (!qrElem || typeof QRCode === 'undefined') return;
+      var qrText = [
+        'BDIC DMS Receipt',
+        'Ref: {{ $receipt->reference ?? ('RCT-' . ($receipt->id ?? '000')) }}',
+        'Amount: ₦{{ number_format($receipt->transTotal ?? ($receipt->transAmount + ($receipt->transFee ?? 0)), 2) }}',
+        'Date: {{ date('Y-m-d H:i:s', strtotime($receipt->transDate)) }}'
+      ].join('\n');
+      new QRCode(qrElem, {
+        text: qrText,
+        width: 96,
+        height: 96,
+        colorDark: '#212529',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    })();
+  </script>
 </body>
-
 </html>
