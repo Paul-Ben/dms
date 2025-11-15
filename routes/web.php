@@ -16,6 +16,9 @@ use App\Http\Controllers\Admin\DepartmentController as AdminDepartmentController
 use App\Http\Controllers\Admin\UserManagerController as AdminUserManagerController;
 use App\Http\Controllers\User\DocumentController as UserDocumentController;
 use App\Http\Controllers\User\ReceiptController as UserReceiptController;
+use App\Models\User;
+use App\Models\UserDetails;
+use App\Models\Payment;
 
 /*
 |--------------------------------------------------------------------------
@@ -49,6 +52,41 @@ Route::get('/test-verify', function () {
 Route::get('/session/check', function () {
     return response()->json(['authenticated' => auth()->check()]);
 });
+
+// Public sample route to preview the receipt without authentication
+Route::get('/preview/receipt', function () {
+    // Fake user and details to satisfy the view and navigation
+    $authUser = new User([
+        'name' => 'Sample User',
+        'email' => 'sample.user@example.com',
+        'default_role' => 'User',
+        'is_active' => true,
+    ]);
+    $user = $authUser; // The view expects both $authUser and $user
+    $userDetails = new UserDetails([
+        'phone_number' => '0800-000-0000',
+    ]);
+    // Attach relation without persisting
+    $user->setRelation('userDetail', $userDetails);
+
+    // Sample receipt data
+    $receipt = new Payment([
+        'id' => 1,
+        'document_no' => 'DOC-2025-0001',
+        'reference' => 'RCT-DEMO-001',
+        'transAmount' => 3000,
+        'transFee' => 100,
+        'transTotal' => 3100,
+        'transDate' => now()->toDateTimeString(),
+        // Optional payment metadata for footer
+        'payment_channel' => 'Card',
+        'gateway' => 'Paystack',
+        'transaction_id' => 'TX-DEMO-123456',
+    ]);
+
+    // Render the same receipt view with sample data
+    return view('user.receipts.show', compact('receipt', 'user', 'authUser'));
+})->name('preview.receipt');
 
 // Local-only dev routes to test payment without auth
 if (app()->environment(['local', 'testing'])) {
