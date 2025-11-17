@@ -322,7 +322,7 @@ class SuperAdminActions extends Controller
             $action = '<div class="nav-item dropdown">'
                 .'<a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Details</a>'
                 .'<div class="dropdown-menu">'
-                .'<a href="' . route('user.edit', $ud) . '" class="dropdown-item">Edit</a>';
+                .'<a href="' . route('user.edit', optional($u)->id) . '" class="dropdown-item">Edit</a>';
 
             if (optional($u)->is_active) {
                 $action .= '<form method="POST" action="' . route('user.deactivate', optional($u)->id) . '" style="display: inline;" onsubmit="return confirm(\'Are you sure you want to deactivate this user? They will not be able to log in until reactivated.\')">'
@@ -349,7 +349,7 @@ class SuperAdminActions extends Controller
 
             $data[] = [
                 'index' => $indexStart + $i,
-                'name' => '<a href="' . route('user.view', $ud) . '">' . e(optional($u)->name) . '</a>',
+                'name' => '<a href="' . route('user.view', optional($u)->id) . '">' . e(optional($u)->name) . '</a>',
                 // Replicate current UI: "Designation" column shows organisation name
                 'designation' => e(optional($tenant)->name ?? ''),
                 'department' => e(optional($dept)->name ?? ($ud->designation ?? '')),
@@ -702,6 +702,8 @@ class SuperAdminActions extends Controller
                 $signaturePath = $oldSignaturePath;
             }
 
+            \Log::info("Successfully uploaded signature");
+
             // Create user
             $user = User::create([
                 'name' => $validated['name'],
@@ -710,8 +712,12 @@ class SuperAdminActions extends Controller
                 'default_role' => $request->input('default_role'),
             ]);
 
+
+
             // Assign role
             $user->assignRole($request->input('default_role'));
+
+
 
             // Create user details
             $user->userDetail()->create([
@@ -733,6 +739,8 @@ class SuperAdminActions extends Controller
             ]);
 
             DB::commit();
+
+
 
             return redirect()->route('users.index')->with([
                 'message' => 'User created successfully',
