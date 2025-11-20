@@ -68,5 +68,9 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'user.active' => \App\Http\Middleware\CheckUserActive::class,
+        // Spatie Laravel Permission middleware aliases (namespace uses singular 'Middleware')
+        'role' => 'Spatie\\Permission\\Middleware\\RoleMiddleware',
+        'permission' => 'Spatie\\Permission\\Middleware\\PermissionMiddleware',
+        'role_or_permission' => 'Spatie\\Permission\\Middleware\\RoleOrPermissionMiddleware',
     ];
 }
