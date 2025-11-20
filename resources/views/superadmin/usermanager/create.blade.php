@@ -89,7 +89,7 @@
                                 <div class="col-sm-12 col-xl-6 mb-3">
                                     <label for="departmentSelect" class="form-label">Designation</label>
                                     <select id="designationSelect" name="designation" class="form-select" required>
-                                        <option selected>select menu</option>
+                                        <option value="" selected>Select designation</option>
                                         @foreach ($designations as $designation)
                                             <option value="{{ $designation->name }}">{{ $designation->name }}</option>
                                         @endforeach
@@ -101,7 +101,7 @@
                                     <label for="exampleInputEmail1" class="form-label">Organisation</label>
                                     <select id="organisationSelect" name="tenant_id" onchange="getDepartments(this.value)"
                                         class="form-select" required>
-                                        <option selected>select menu</option>
+                                        <option value="" selected>Select organisation</option>
                                         @foreach ($organisations as $organisation)
                                             <option value="{{ $organisation->id }}">{{ $organisation->name }}</option>
                                         @endforeach
@@ -110,7 +110,7 @@
                                 <div class="col-sm-12 col-xl-6 mb-3">
                                     <label for="departmentSelect" class="form-label">Department</label>
                                     <select id="departmentSelect" name="department_id" class="form-select" required>
-                                        <option value="">select menu</option>
+                                        <option value="">Select department</option>
                                         @foreach ($departments as $department)
                                             <option value="{{ $department->id }}">{{ $department->name }}</option>
                                         @endforeach
@@ -196,7 +196,93 @@
         <!-- Form End -->
     </div>
 
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
+    <!-- jQuery (required for Select2) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJ+Y7B1b8v6Qn8zQeDk5Wv5xWc5Q5ZkN3E9Qc=" crossorigin="anonymous"></script>
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script>
+        // Initialize Select2 searchable dropdowns
+        (function() {
+            const ready = (fn) => (document.readyState !== 'loading') ? fn() : document.addEventListener('DOMContentLoaded', fn);
+            ready(function() {
+                const $jq = window.jQuery || window.$;
+                if (!$jq) {
+                    console.error('jQuery not available: Select2 cannot initialize');
+                    // Fallback: native searchable selects
+                    makeNativeSearchable(document.getElementById('designationSelect'), 'Search designation');
+                    makeNativeSearchable(document.getElementById('organisationSelect'), 'Search organisation');
+                    document.getElementById('organisationSelect')?.addEventListener('change', function() { getDepartments(this.value); });
+                    return;
+                }
+                if (typeof $jq.fn.select2 !== 'function') {
+                    console.error('Select2 plugin not loaded');
+                    // Fallback: native searchable selects
+                    makeNativeSearchable(document.getElementById('designationSelect'), 'Search designation');
+                    makeNativeSearchable(document.getElementById('organisationSelect'), 'Search organisation');
+                    document.getElementById('organisationSelect')?.addEventListener('change', function() { getDepartments(this.value); });
+                    return;
+                }
+                // Ensure containers size correctly
+                $jq('#designationSelect').select2({
+                    theme: 'bootstrap-5',
+                    width: '100%',
+                    placeholder: 'Select designation',
+                    allowClear: true,
+                    minimumResultsForSearch: 0
+                });
+                $jq('#organisationSelect').select2({
+                    theme: 'bootstrap-5',
+                    width: '100%',
+                    placeholder: 'Select organisation',
+                    allowClear: true,
+                    minimumResultsForSearch: 0
+                });
+
+                // Keep department loading in sync with Select2
+                $jq('#organisationSelect').on('change', function() {
+                    getDepartments(this.value);
+                });
+            });
+        })();
+
+        // Fallback: add a small input above select to filter options in-place
+        function makeNativeSearchable(selectEl, placeholder) {
+            if (!selectEl) return;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'mb-2';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'form-control';
+            input.placeholder = placeholder || 'Search';
+            // Insert input right before the select
+            selectEl.parentNode.insertBefore(wrapper, selectEl);
+            wrapper.appendChild(input);
+            wrapper.appendChild(selectEl);
+
+            // Cache original options
+            const original = Array.from(selectEl.options).map(opt => ({ value: opt.value, text: opt.text, selected: opt.selected }));
+            input.addEventListener('input', function() {
+                const q = this.value.trim().toLowerCase();
+                const filtered = original.filter(o => !q || o.text.toLowerCase().includes(q));
+                // Remember current selection
+                const currentValue = selectEl.value;
+                // Rebuild options
+                while (selectEl.options.length) selectEl.remove(0);
+                filtered.forEach(o => {
+                    const opt = new Option(o.text, o.value, false, o.value === currentValue);
+                    selectEl.add(opt);
+                });
+                // If current selection not present anymore, clear to placeholder if available
+                if (!filtered.some(o => o.value === currentValue) && selectEl.options.length) {
+                    selectEl.selectedIndex = 0;
+                }
+            });
+        }
+
         function getDepartments(organisationId) {
             const departmentSelect = $('#departmentSelect');
 
@@ -228,7 +314,7 @@
         function populateDepartmentSelect(data) {
             const departmentSelect = $('#departmentSelect');
             departmentSelect.empty();
-            departmentSelect.append('<option selected>Select menu</option>');
+            departmentSelect.append('<option value="" selected>Select department</option>');
 
             $.each(data, function(key, value) {
                 departmentSelect.append(`<option value="${value.id}">${value.name}</option>`);
