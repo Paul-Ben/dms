@@ -702,7 +702,7 @@ class SuperAdminActions extends Controller
                 $signaturePath = $oldSignaturePath;
             }
 
-            \Log::info("Successfully uploaded signature");
+            Log::info('Successfully uploaded signature');
 
             // Create user
             $user = User::create([
@@ -1048,14 +1048,20 @@ class SuperAdminActions extends Controller
     public function userUploadCsv(Request $request)
     {
         // Validate the uploaded file
+        // Note: tenant_name and department_name come from the CSV rows;
+        // do not require them at the request-level.
         $validator = Validator::make($request->all(), [
-            'csv_file' => 'required|file|mimes:csv,txt',
-            'tenant_name' => 'required|exists:tenants,name',
-            'department_name' => 'required'
+            'csv_file' => 'required|file|mimes:csv,txt'
         ]);
 
         if ($validator->fails()) {
-            return redirect()->back()->withErrors($validator)->withInput();
+            return redirect()->back()
+                ->withErrors($validator)
+                ->with([
+                    'message' => 'Validation failed for CSV upload.',
+                    'alert-type' => 'error'
+                ])
+                ->withInput();
         }
 
         // Get the uploaded file
@@ -1080,6 +1086,12 @@ class SuperAdminActions extends Controller
                     }
 
                     $data = array_combine($header, $row);
+                    // Normalize whitespace on all string fields
+                    foreach ($data as $key => $val) {
+                        if (is_string($val)) {
+                            $data[$key] = (string) Str::of($val)->trim()->squish();
+                        }
+                    }
 
                     // Check for existing user
                     if (User::where('email', $data['email'])->exists()) {
@@ -1087,19 +1099,21 @@ class SuperAdminActions extends Controller
                         continue;
                     }
 
-                    // Resolve organization (tenant)
-                    $tenant = Tenant::where('name', $data['tenant_name'])->first();
+                    // Resolve organization (tenant) with case-insensitive match and normalized spacing
+                    $tenantName = (string) Str::of($data['tenant_name'])->trim()->squish();
+                    $tenant = Tenant::whereRaw('LOWER(name) = ?', [Str::lower($tenantName)])->first();
                     if (!$tenant) {
-                        $errors[] = "Row " . ($index + 1) . ": Organization '{$data['tenant_name']}' not found";
+                        $errors[] = "Row " . ($index + 1) . ": Organization '{$data['tenant_name']}' not found. Please verify the name exactly matches a Tenant and ensure it is pre-created with required fields (code, email).";
                         continue;
                     }
 
                     // Resolve department
-                    $department = TenantDepartment::where('name', $data['department_name'])
-                        ->where('tenant_id', $tenant->id)
+                    $departmentName = (string) Str::of($data['department_name'])->trim()->squish();
+                    $department = TenantDepartment::where('tenant_id', $tenant->id)
+                        ->whereRaw('LOWER(name) = ?', [Str::lower($departmentName)])
                         ->first();
                     if (!$department) {
-                        $errors[] = "Row " . ($index + 1) . ": Department '{$data['department_name']}' not found in {$data['tenant_name']}";
+                        $errors[] = "Row " . ($index + 1) . ": Department '{$data['department_name']}' not found in {$data['tenant_name']}. Create the department under the organization or correct the CSV name.";
                         continue;
                     }
 
@@ -1144,18 +1158,19 @@ class SuperAdminActions extends Controller
             // Prepare notification
             $notification = [
                 'message' => "Successfully created $successCount users",
-                'type' => 'success'
+                'alert-type' => 'success'
             ];
 
             if (!empty($duplicates)) {
                 $notification['message'] .= ". Skipped " . count($duplicates) . " duplicates";
-                $notification['type'] = 'warning';
+                $notification['alert-type'] = 'warning';
             }
 
             if (!empty($errors)) {
                 $notification['message'] .= ". " . count($errors) . " errors occurred";
-                $notification['errors'] = $errors;
-                $notification['type'] = 'error';
+                // Use a distinct key to avoid clashing with Laravel's validation error bag
+                $notification['row_errors'] = $errors;
+                $notification['alert-type'] = 'error';
             }
 
             return redirect()->back()->with($notification);
@@ -1163,7 +1178,7 @@ class SuperAdminActions extends Controller
             DB::rollBack();
             return redirect()->back()->with([
                 'message' => 'Transaction failed: ' . $e->getMessage(),
-                'type' => 'error'
+                'alert-type' => 'error'
             ]);
         }
     }
@@ -2683,9 +2698,10 @@ class SuperAdminActions extends Controller
     public function generateMemoPdf(Memo $memo)
     {
         // Get the sender user (assuming sender is a user name or ID)
-        $senderUser = User::where('name', $memo['sender'])->with('userDetail')->first();
+        $senderUser = User::where('name', $memo->sender)->with('userDetail')->first();
 
         $pdf = new Fpdi();
+        /** @var \setasign\Fpdi\Fpdi $pdf */
 
         // Set dimensions from the letterhead template
         $templatePath = public_path('templates/letterhead.pdf');
@@ -2743,16 +2759,19 @@ class SuperAdminActions extends Controller
 
         // Header positions (adjust these based on your letterhead template)
         $pdf->SetXY(35, 53);  // Sender position
-        $pdf->Write(0, $memo['sender']);
+        $pdf->Write(0, $memo->sender);
 
         $pdf->SetXY(35, 69);  // Subject position
-        $pdf->Write(0, $memo['title']);
+        $pdf->Write(0, $memo->title);
 
         $pdf->SetXY(140, 53); // Recipient position
-        $pdf->Write(0, $memo['receiver']);
+        $pdf->Write(0, $memo->receiver);
 
         $pdf->SetXY(140, 69); // Date position
-        $pdf->Write(0, $memo['created_at']->format('M j, Y'));
+        $pdf->Write(0, ($memo->created_at instanceof \Carbon\Carbon)
+            ? $memo->created_at->format('M j, Y')
+            : \Carbon\Carbon::parse($memo->created_at)->format('M j, Y')
+        );
 
         // Content positioning
         $contentStartY = 85; // Starting Y position for main content
@@ -2763,7 +2782,7 @@ class SuperAdminActions extends Controller
 
         // Main content with MultiCell for automatic line breaks
         $pdf->SetXY(30, $contentStartY + 15);
-        $pdf->MultiCell(150, 6, $memo['content']); // Width 150mm, height 6mm per line
+        $pdf->MultiCell(150, 6, $memo->content); // Width 150mm, height 6mm per line
 
         // Get Y position after content
         $yAfterContent = $pdf->GetY();
@@ -2806,9 +2825,9 @@ class SuperAdminActions extends Controller
 
 
         // === Append Memo Movements Section ===
-        // Fetch all memo movements for this memo, descending order
-        $movements = DB::table('memo_movements')
-            ->where('memo_id', $memo->id)
+        // Fetch all memo movements for this memo using Eloquent for typed models
+        /** @var \Illuminate\Database\Eloquent\Collection<int, \App\Models\MemoMovement> $movements */
+        $movements = MemoMovement::where('memo_id', $memo->id)
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -2844,6 +2863,7 @@ class SuperAdminActions extends Controller
             $pdf->SetFont('Arial', '', 11);
 
             foreach ($movements as $movement) {
+                /** @var \App\Models\MemoMovement $movement */
                 // Get sender details
                 $sender = \App\Models\User::with('userDetail')->find($movement->sender_id);
                 $senderName = $sender ? $sender->name : 'Unknown';
