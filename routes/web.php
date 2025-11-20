@@ -19,6 +19,8 @@ use App\Http\Controllers\User\ReceiptController as UserReceiptController;
 use App\Models\User;
 use App\Models\UserDetails;
 use App\Models\Payment;
+use App\Http\Controllers\ConversationsController;
+use App\Http\Controllers\MessageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -125,8 +127,10 @@ Route::patch('/users/{user}/activate', [SuperAdminActions::class, 'user_activate
 Route::patch('/users/{user}/verify', [SuperAdminActions::class, 'user_verify'])->name('user.verify');
 Route::get('/users/search', [SearchController::class, 'searchUser'])->name('search.user');
     Route::get('/get-departments/{organisationId}', [SuperAdminActions::class, 'getDepartments']);
+Route::middleware(['auth', 'role:superadmin'])->group(function () {
     Route::get('/upload', [SuperAdminActions::class, 'showUserUploadForm'])->name('userUpload.form');
     Route::post('/upload', [SuperAdminActions::class, 'userUploadCsv'])->name('userUpload.csv');
+});
     Route::get('/document/charge', [SuperAdminActions::class, 'setCharge'])->name('set.charge');
     Route::post('/document/charge', [SuperAdminActions::class, 'storeFileCharge'])->name('store.fileCharge');
     Route::get('/document/charge/{fileCharge}', [SuperAdminActions::class, 'editFileCharge'])->name('edit.fileChargeForm');
@@ -236,6 +240,14 @@ Route::get('/organisations/search', [SearchController::class, 'searchOrg'])->nam
     Route::get('/document/{document}/location', [SuperAdminActions::class, 'track_document'])->name('track');
     Route::get('/document/{document}/attachments', [SuperAdminActions::class, 'get_attachments'])->name('getAttachments');
     Route::get('/etranzact/callback', [SuperAdminActions::class, 'handleETranzactCallback'])->name("etranzact.callBack");
+
+    // Conversations (tenant-scoped direct messaging)
+    Route::get('/conversations', [ConversationsController::class, 'index'])->name('conversations.index');
+    Route::post('/conversations', [ConversationsController::class, 'store'])->name('conversations.store');
+    Route::get('/conversations/members/search', [ConversationsController::class, 'searchMembers'])->name('conversations.members.search');
+    Route::get('/conversations/{conversation}/messages', [MessageController::class, 'index'])->name('conversations.messages.index');
+    Route::post('/conversations/{conversation}/messages', [MessageController::class, 'store'])->name('conversations.messages.store');
+    Route::post('/conversations/{conversation}/messages/read', [MessageController::class, 'markRead'])->name('conversations.messages.read');
 
     /**Memo management related links */
     Route::get('/document/memo', [SuperAdminActions::class, 'memo_index'])->name('memo.index');
