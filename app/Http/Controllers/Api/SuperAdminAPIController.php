@@ -555,18 +555,38 @@ class SuperAdminAPIController extends Controller
             return response()->json(['error' => 'Document not found.'], 404);
         }
 
-        $document->status = 'Successful';
+        // Mark hold as paid for tracking; keep pending semantics during payment
+        $document->status = 'Pending';
+        $document->payment_status = 'paid';
         $document->save();
 
-        $newDocument = Document::create([
-            'title' => $document->title,
-            'docuent_number' => $document->docuent_number,
-            'file_path' => $document->file_path,
-            'uploaded_by' => $document->uploaded_by,
-            'status' => 'pending',
-            'description' => $document->description,
-            'metadata' => json_encode($document->metadata),
-        ]);
+        // Idempotent creation: update existing or create once
+        $newDocument = Document::where('docuent_number', $document->docuent_number)
+            ->where('uploaded_by', $document->uploaded_by)
+            ->first();
+
+        if ($newDocument) {
+            $newDocument->payment_status = 'paid';
+            if ($document->file_path && $newDocument->file_path !== $document->file_path) {
+                $newDocument->file_path = $document->file_path;
+            }
+            // Keep status pending until the send step below
+            if (!in_array($newDocument->status, ['pending', 'processing', 'approved', 'rejected', 'kiv', 'completed'])) {
+                $newDocument->status = 'pending';
+            }
+            $newDocument->save();
+        } else {
+            $newDocument = Document::create([
+                'title' => $document->title,
+                'docuent_number' => $document->docuent_number,
+                'file_path' => $document->file_path,
+                'uploaded_by' => $document->uploaded_by,
+                'status' => 'pending',
+                'payment_status' => 'paid',
+                'description' => $document->description,
+                'metadata' => json_encode($document->metadata),
+            ]);
+        }
 
         Activity::create([
             'action' => 'You uploaded a document',
@@ -586,6 +606,10 @@ class SuperAdminAPIController extends Controller
             'user_id' => Auth::id(),
             'created_at' => now(),
         ]);
+
+        // Mark document as sent: update to processing per new lifecycle
+        $newDocument->status = 'processing';
+        $newDocument->save();
 
         Activity::insert([
             [
