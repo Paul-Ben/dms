@@ -16,6 +16,7 @@ class Document extends Model
         'file_path',
         'uploaded_by',
         'status',
+        'payment_status',
         'description',
         'metadata',
         'folder_id'
