@@ -217,6 +217,18 @@ Route::get('/organisations/search', [SearchController::class, 'searchOrg'])->nam
 
     // Admin: Tenant Analytics
     Route::get('/admin/analytics', [\App\Http\Controllers\Admin\AnalyticsController::class, 'index'])->name('admin.analytics.index');
+    // Admin: Document Management (chat-style members view)
+Route::get('/admin/doc-mgt', [SuperAdminActions::class, 'adminDocMgt'])
+    ->middleware('role:Admin|superadmin|IT Admin|Staff|Secretary')
+    ->name('admin.docmgt');
+Route::get('/admin/doc-mgt/activity', [SuperAdminActions::class, 'adminDocMgtActivity'])
+    ->middleware('role:Admin|superadmin|IT Admin|Staff|Secretary')
+    ->name('admin.docmgt.activity');
+Route::get('/admin/doc-mgt/member-activity', [SuperAdminActions::class, 'adminDocMgtMemberActivity'])
+    ->middleware('role:Admin|superadmin|IT Admin|Staff|Secretary')
+    ->name('admin.docmgt.member_activity');
+// Admin: recipients search for New Document modal
+Route::get('/admin/doc-mgt/recipients', [SuperAdminActions::class, 'adminDocMgtRecipientSearch'])->name('admin.docmgt.recipients');
     Route::get('/document/create', [SuperAdminActions::class, 'document_create'])->name('document.create');
     Route::post('/document/create', [SuperAdminActions::class, 'document_store'])->name('document.store');
     Route::get('/document/sent', [SuperAdminActions::class, 'sent_documents'])->name('document.sent');
@@ -230,12 +242,20 @@ Route::get('/organisations/search', [SearchController::class, 'searchOrg'])->nam
     Route::get('/document/{document}/send', [SuperAdminActions::class, 'getSendform'])->name('document.send');
     Route::get('/document/{document}/sendout', [SuperAdminActions::class, 'getSendExternalForm'])->name('document.sendout');
     Route::get('/document/{document}/reply', [SuperAdminActions::class, 'getReplyform'])->name('document.reply');
-    Route::post('/document/{document}/send', [SuperAdminActions::class, 'sendDocument'])->name('document.senddoc');
+    Route::post('/document/{document}/send', [SuperAdminActions::class, 'sendDocument'])
+        ->middleware('role:Admin|superadmin|IT Admin|Staff|Secretary')
+        ->name('document.senddoc');
     Route::post('/document/send2admin', [SuperAdminActions::class, 'secSendToAdmin'])->name('document.senddoc2admin');
     Route::get('/document/file/document', [SuperAdminActions::class, 'user_file_document'])->name('document.file');
     Route::get('/document/document/{received}/view', [SuperAdminActions::class, 'document_show'])->name('document.view');
     Route::get('/document/document/{document}/myview', [SuperAdminActions::class, 'myDocument_show'])->name('document.myview');
     Route::get('/document/document/{sent}/view', [SuperAdminActions::class, 'document_show_sent'])->name('document.view_sent');
+    // New upload-first flow
+    Route::post('/document/upload', [SuperAdminActions::class, 'uploadDocument'])->name('document.upload');
+    Route::get('/document/uploads', [SuperAdminActions::class, 'listUploadedDocuments'])->name('document.uploads');
+    Route::get('/document/uploads/{hold}/pay', [SuperAdminActions::class, 'initiatePayment'])->name('document.uploads.pay');
+    Route::post('/document/uploads/{document}/send', [SuperAdminActions::class, 'sendUploadedDocument'])->name('document.uploads.send');
+    // Legacy path kept for backward compatibility
     Route::post('/document/file/document', [SuperAdminActions::class, 'user_store_file_document'])->name('document.storefile');
     Route::get('/document/{document}/location', [SuperAdminActions::class, 'track_document'])->name('track');
     Route::get('/document/{document}/attachments', [SuperAdminActions::class, 'get_attachments'])->name('getAttachments');
