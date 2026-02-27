@@ -1,4 +1,3 @@
-
 @extends('dashboards.index')
 @section('content')
     <style>
@@ -192,7 +191,7 @@
             padding: 12px;
             background: white;
             border-radius: 0 8px 8px 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         /* Avatar */
@@ -210,40 +209,40 @@
             body {
                 padding: 20px;
             }
-            
+
             .email-container {
                 padding: 20px;
             }
-            
+
             .btn {
                 padding: 8px 16px;
                 font-size: 14px;
             }
-            
+
             .btn svg {
                 width: 16px;
                 height: 16px;
             }
-            
+
             .subject {
                 font-size: 20px;
             }
-            
+
             .email-meta {
                 grid-template-columns: 80px 1fr;
                 font-size: 14px;
             }
-            
+
             .timeline {
                 padding-left: 50px;
             }
-            
+
             .timeline-item::before {
                 left: -40px;
                 width: 12px;
                 height: 12px;
             }
-            
+
             .avatar {
                 width: 40px;
                 height: 40px;
@@ -264,15 +263,28 @@
             font-size: 1.2rem;
             z-index: 5;
         }
-        .stt-mic-btn:hover { color: #0d6efd; }
+
+        .stt-mic-btn:hover {
+            color: #0d6efd;
+        }
+
         .stt-mic-btn.listening {
             color: #dc3545;
             animation: pulse 1.5s infinite;
         }
+
         @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
+
+            100% {
+                transform: scale(1);
+            }
         }
     </style>
     @include('partials.document_split_layout_css')
@@ -290,7 +302,13 @@
                             <span class="d-inline d-sm-none">Reply</span>
                         </button>
                     </a>
-                    <a href="{{ route('document.send', $document_received->document_id) }}" class="text-decoration-none">
+
+                    <button id="shareBtn" class="btn btn-sm btn-outline-secondary ms-1" type="button"
+                        data-title="{{ $document_received->document->title }}"
+                        data-number="{{ $document_received->document->docuent_number }}">
+                        <i class="fa fa-share-alt me-1"></i> Minute and Send
+                    </button>
+                    {{-- <a href="{{ route('document.send', $document_received->document_id) }}" class="text-decoration-none">
                         <button class="btn">
                             <svg viewBox="0 0 24 24">
                                 <path fill="currentColor" d="M14 9v-4l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z" />
@@ -298,8 +316,8 @@
                             <span class="d-none d-sm-inline">Minute the mail</span>
                             <span class="d-inline d-sm-none">Minute</span>
                         </button>
-                    </a>
-                    <a href="#priviousmiuting">
+                    </a> --}}
+                    {{-- <a href="#priviousmiuting">
                         <button class="btn" type="button">
                             <svg viewBox="0 0 24 24">
                                 <path fill="currentColor" d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
@@ -307,7 +325,7 @@
                             <span class="d-none d-md-inline">Previous Minuting</span>
                             <span class="d-inline d-md-none">History</span>
                         </button>
-                    </a>
+                    </a> --}}
 
                     <a href="{{ route('track', $document_received->document_id) }}" class="text-decoration-none">
                         <button class="btn">
@@ -318,7 +336,8 @@
                         </button>
                     </a>
                     @if ($document_received->attachments->isNotEmpty())
-                        <a href="{{ route('getAttachments', $document_received->document_id) }}" class="text-decoration-none">
+                        <a href="{{ route('getAttachments', $document_received->document_id) }}"
+                            class="text-decoration-none">
                             <button class="btn">
                                 <svg viewBox="0 0 24 24">
                                     <path fill="currentColor" d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
@@ -328,14 +347,13 @@
                             </button>
                         </a>
                     @endif
-                    <a href="{{ route('folders.select', $document_received->document->id) }}" 
-                        class="text-decoration-none"
+                    <a href="{{ route('folders.select', $document_received->document->id) }}" class="text-decoration-none"
                         title="Add to folder">
-                         <button class="btn">
+                        <button class="btn">
                             <i class="fas fa-folder-plus"></i>
                             Add to Folder
-                         </button>
-                     </a>
+                        </button>
+                    </a>
                     <a href="{{ url()->previous() }}" class="text-decoration-none">
                         <button class="btn">
                             <svg viewBox="0 0 24 24">
@@ -358,7 +376,7 @@
                                 {{ $document_received->document->docuent_number }}
                             </span>
                         </div>
-                        
+
                         <div class="flex-grow-1 bg-light position-relative" style="min-height: 500px;">
                             @php
                                 $fileUrl = $document_received->document->file_path;
@@ -366,7 +384,8 @@
                                     $fileUrl = asset('storage/' . $fileUrl);
                                 }
                             @endphp
-                            <iframe src="{{ $fileUrl }}" class="w-100 h-100 border-0" style="min-height: 600px;"></iframe>
+                            <iframe src="{{ $fileUrl }}" class="w-100 h-100 border-0"
+                                style="min-height: 600px;"></iframe>
                         </div>
 
                         <!-- Sticky Actions Footer -->
@@ -377,15 +396,14 @@
                                         <i class="fas fa-download mr-1"></i> Download
                                     </a> --}}
                                     @if ($document_received->attachments->isNotEmpty())
-                                        <a href="{{ $document_received->attachments[0]->attachment }}" target="_blank" class="btn btn-outline-secondary btn-sm">
+                                        <a href="{{ $document_received->attachments[0]->attachment }}" target="_blank"
+                                            class="btn btn-outline-secondary btn-sm">
                                             <i class="fas fa-paperclip mr-1"></i> Attachment
                                         </a>
                                     @endif
-                                    <button id="shareBtn"
-                                            class="btn btn-sm btn-outline-secondary ms-1"
-                                            type="button"
-                                            data-title="{{ $document_received->document->title }}"
-                                            data-number="{{ $document_received->document->docuent_number }}">
+                                    <button id="shareBtn" class="btn btn-sm btn-outline-secondary ms-1" type="button"
+                                        data-title="{{ $document_received->document->title }}"
+                                        data-number="{{ $document_received->document->docuent_number }}">
                                         <i class="fa fa-share-alt me-1"></i> Minute and Send
                                     </button>
                                 </div>
@@ -406,7 +424,7 @@
                                 <i class="fas fa-history me-2"></i> History
                             </h5>
                         </div>
-                        
+
                         <div class="flex-grow-1 overflow-auto p-3" style="max-height: 800px;">
                             <!-- Document Info Card -->
                             <div class="card mb-3 border-0 shadow-sm bg-light">
@@ -425,23 +443,30 @@
                                 @foreach ($document_locations as $location)
                                     <div class="timeline-item">
                                         <!-- Header -->
-                                        <div class="message-header d-flex justify-content-between align-items-start mb-2" title="click to view minuting" data-toggle="tooltip"
-                                             onclick="this.parentNode.querySelector('.message-content').classList.toggle('d-none')"
-                                             style="cursor: pointer;">
+                                        <div class="message-header d-flex justify-content-between align-items-start mb-2"
+                                            title="click to view minuting" data-toggle="tooltip"
+                                            onclick="this.parentNode.querySelector('.message-content').classList.toggle('d-none')"
+                                            style="cursor: pointer;">
                                             <div class="d-flex align-items-center">
-                                                <div class="avatar bg-primary text-white rounded-circle mr-2" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px;">
+                                                <div class="avatar bg-primary text-white rounded-circle mr-2"
+                                                    style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px;">
                                                     {{ strtoupper(substr($location->sender->name, 0, 1)) }}
                                                 </div>
                                                 <div style="line-height: 1.2;">
-                                                    <h6 class="mb-0 fw-bold small text-dark">{{ $location->sender->name }}</h6>
+                                                    <h6 class="mb-0 fw-bold small text-dark">{{ $location->sender->name }}
+                                                    </h6>
                                                     <small class="text-muted" style="font-size: 11px;">
                                                         {{ $location->sender->userDetail->designation }}
                                                     </small>
+                                                    <div>
+                                                        <small class="text-muted" style="font-size: 11px;">
+                                                            {{ $location->created_at->format('M j') }}
+                                                        </small>
+                                                    </div>
+
                                                 </div>
                                             </div>
-                                            <small class="text-muted" style="font-size: 11px;">
-                                                {{ $location->created_at->format('M j') }}
-                                            </small>
+
                                         </div>
 
                                         <!-- Content -->
@@ -479,7 +504,8 @@
                             <label for="minutingMessage" class="form-label fw-bold">Message</label>
                             <div class="stt-wrapper position-relative">
                                 <textarea id="minutingMessage" class="form-control" rows="4" placeholder="Type your minute/message here..."></textarea>
-                                <button type="button" id="sttToggle" class="stt-mic-btn" aria-label="Dictate message" title="Click to speak">
+                                <button type="button" id="sttToggle" class="stt-mic-btn" aria-label="Dictate message"
+                                    title="Click to speak">
                                     <i class="fas fa-microphone"></i>
                                 </button>
                             </div>
@@ -553,7 +579,8 @@
     </div>
 
     <!-- Share Modal: Tenant Members selector -->
-    <div class="modal fade" id="shareModal" tabindex="-1" role="dialog" aria-labelledby="shareModalLabel" aria-hidden="true">
+    <div class="modal fade" id="shareModal" tabindex="-1" role="dialog" aria-labelledby="shareModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
             <div class="modal-content">
                 <div class="modal-header">
@@ -564,7 +591,8 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3 d-flex align-items-center gap-2">
-                        <input id="shareMemberSearch" type="text" class="form-control" placeholder="Search members by name" aria-label="Search members">
+                        <input id="shareMemberSearch" type="text" class="form-control"
+                            placeholder="Search members by name" aria-label="Search members">
                         <small id="shareSearchStatus" class="text-muted ms-2"></small>
                     </div>
                     <div class="border rounded" style="max-height: 50vh; overflow:auto;">
@@ -576,7 +604,8 @@
                         <button type="button" id="shareProceedBtn" class="btn btn-primary">Next</button>
                         <small class="text-muted">Selected: <span id="shareSelectedCount">0</span></small>
                     </div>
-                    <button type="button" id="shareFooterCloseBtn" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" id="shareFooterCloseBtn" class="btn btn-secondary"
+                        data-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -587,15 +616,23 @@
         #shareMemberList .list-group-item {
             cursor: pointer;
         }
+
         #shareMemberList .list-group-item.active,
         #shareMemberList .list-group-item.selected {
             background-color: #e9f3ff;
         }
+
         .share-member-avatar {
-            width: 32px; height: 32px; border-radius: 50%; object-fit: cover;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
         }
+
         @media (max-width: 576px) {
-            #shareMemberList { max-height: 60vh; }
+            #shareMemberList {
+                max-height: 60vh;
+            }
         }
 
         /* Minuting recipients chips */
@@ -610,13 +647,28 @@
             margin: 4px 6px 0 0;
             font-size: 13px;
         }
+
         #minutingRecipients .recipient-chip img {
-            width: 20px; height: 20px; border-radius: 50%; object-fit: cover;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            object-fit: cover;
         }
-        #minutingRecipients .recipient-chip .name { font-weight: 500; color: #202124; }
-        #minutingRecipients .recipient-chip .email { color: #6c757d; }
+
+        #minutingRecipients .recipient-chip .name {
+            font-weight: 500;
+            color: #202124;
+        }
+
+        #minutingRecipients .recipient-chip .email {
+            color: #6c757d;
+        }
+
         @media (max-width: 576px) {
-            #minutingRecipients .recipient-chip { font-size: 12px; padding: 5px 8px; }
+            #minutingRecipients .recipient-chip {
+                font-size: 12px;
+                padding: 5px 8px;
+            }
         }
 
         /* Share modal footer layout and responsiveness */
@@ -628,14 +680,27 @@
             padding-top: 0.75rem;
             padding-bottom: 0.75rem;
         }
-            #shareModal .btn-primary {
-                background-color: #0d6efd;
-                border-color: #0d6efd;
-            }
+
+        #shareModal .btn-primary {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+
         @media (max-width: 576px) {
-            #shareModal .share-footer { flex-direction: column; align-items: stretch; gap: 0.5rem; }
-            #shareModal .share-footer .d-flex { width: 100%; justify-content: space-between; }
-            #shareFooterCloseBtn { width: 100%; }
+            #shareModal .share-footer {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
+            }
+
+            #shareModal .share-footer .d-flex {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            #shareFooterCloseBtn {
+                width: 100%;
+            }
         }
 
         /* Minuting Send/Share button: blue primary with hover/focus accessibility */
@@ -643,16 +708,22 @@
             background-color: #0d6efd;
             border-color: #0d6efd;
             color: #fff;
-            min-height: 44px; /* touch-friendly size */
+            min-height: 44px;
+            /* touch-friendly size */
         }
+
         #minutingSendBtn.btn-primary:hover {
-            background-color: #0b5ed7; /* lighter/darker variant for hover */
+            background-color: #0b5ed7;
+            /* lighter/darker variant for hover */
             border-color: #0a58ca;
             box-shadow: 0 2px 6px rgba(13, 110, 253, 0.2);
         }
 
         /* Speech-to-Text mic button positioning and states */
-        .stt-wrapper { position: relative; }
+        .stt-wrapper {
+            position: relative;
+        }
+
         .stt-mic-btn {
             position: absolute;
             right: 10px;
@@ -667,20 +738,56 @@
             border: 1px solid #dee2e6;
             color: #0d6efd;
             cursor: pointer;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
             z-index: 2;
         }
-        .stt-mic-btn:hover { box-shadow: 0 2px 6px rgba(13,110,253,0.2); }
-        .stt-mic-btn:focus { outline: 2px solid rgba(13,110,253,0.25); outline-offset: 2px; }
-        .stt-mic-btn.listening { background: #0d6efd; color: #fff; border-color: #0d6efd; }
-        .stt-mic-btn.listening .fa-microphone { animation: sttPulse 1.2s infinite; }
-        @keyframes sttPulse { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
-        @media (max-width: 576px) { .stt-mic-btn { right: 8px; bottom: 8px; } }
+
+        .stt-mic-btn:hover {
+            box-shadow: 0 2px 6px rgba(13, 110, 253, 0.2);
+        }
+
+        .stt-mic-btn:focus {
+            outline: 2px solid rgba(13, 110, 253, 0.25);
+            outline-offset: 2px;
+        }
+
+        .stt-mic-btn.listening {
+            background: #0d6efd;
+            color: #fff;
+            border-color: #0d6efd;
+        }
+
+        .stt-mic-btn.listening .fa-microphone {
+            animation: sttPulse 1.2s infinite;
+        }
+
+        @keyframes sttPulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.15);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        @media (max-width: 576px) {
+            .stt-mic-btn {
+                right: 8px;
+                bottom: 8px;
+            }
+        }
+
         #minutingSendBtn.btn-primary:focus {
             outline: 2px solid rgba(13, 110, 253, 0.25);
             outline-offset: 2px;
             box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
         }
+
         #minutingSendBtn.btn-primary:active {
             background-color: #0a58ca;
             border-color: #0a53be;
@@ -768,7 +875,11 @@
                 }
                 if (minutingSection) minutingSection.classList.remove('d-none');
                 const chips = ids.map((id) => {
-                    const m = memberCache.get(id) || { id, name: `User #${id}`, avatar_url: '{{ asset('avatar.jpeg') }}' };
+                    const m = memberCache.get(id) || {
+                        id,
+                        name: `User #${id}`,
+                        avatar_url: '{{ asset('avatar.jpeg') }}'
+                    };
                     const safeName = (m.name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                     const email = m.email ? `<span class="email">${m.email}</span>` : '';
                     return `
@@ -782,12 +893,26 @@
                 recipientsEl.innerHTML = chips.join('');
             }
 
-            function updateSelectedCount() { selectedCountEl.textContent = String(selectedIds.size); }
-            function updateMinuting() { updateSelectedCount(); renderRecipientsIndicator(); }
+            function updateSelectedCount() {
+                selectedCountEl.textContent = String(selectedIds.size);
+            }
 
-            function debounce(fn, wait) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); }; }
+            function updateMinuting() {
+                updateSelectedCount();
+                renderRecipientsIndicator();
+            }
 
-            function setStatus(text) { statusEl.textContent = text || ''; }
+            function debounce(fn, wait) {
+                let t;
+                return (...args) => {
+                    clearTimeout(t);
+                    t = setTimeout(() => fn(...args), wait);
+                };
+            }
+
+            function setStatus(text) {
+                statusEl.textContent = text || '';
+            }
 
             function buildItem(m) {
                 const safeName = (m.name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -805,14 +930,20 @@
             function renderList(members) {
                 listEl.innerHTML = (Array.isArray(members) ? members : []).map(buildItem).join('');
                 // Update cache for recipients indicator
-                (Array.isArray(members) ? members : []).forEach(m => { memberCache.set(m.id, m); });
+                (Array.isArray(members) ? members : []).forEach(m => {
+                    memberCache.set(m.id, m);
+                });
             }
 
             async function searchMembers(q) {
                 setStatus('Searching…');
                 const url = `{{ route('conversations.members.search') }}?q=${encodeURIComponent(q || '')}`;
                 try {
-                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    const res = await fetch(url, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
                     if (!res.ok) throw new Error('Search failed');
                     const data = await res.json();
                     const members = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
@@ -834,8 +965,15 @@
                 const id = parseInt(li.getAttribute('data-user-id'));
                 const cb = li.querySelector('input[type="checkbox"]');
                 const willSelect = !selectedIds.has(id);
-                if (willSelect) { selectedIds.add(id); li.classList.add('selected'); cb.checked = true; }
-                else { selectedIds.delete(id); li.classList.remove('selected'); cb.checked = false; }
+                if (willSelect) {
+                    selectedIds.add(id);
+                    li.classList.add('selected');
+                    cb.checked = true;
+                } else {
+                    selectedIds.delete(id);
+                    li.classList.remove('selected');
+                    cb.checked = false;
+                }
                 updateMinuting();
             });
             listEl.addEventListener('change', (e) => {
@@ -843,8 +981,13 @@
                 if (!cb) return;
                 const li = e.target.closest('li.list-group-item');
                 const id = parseInt(li.getAttribute('data-user-id'));
-                if (cb.checked) { selectedIds.add(id); li.classList.add('selected'); }
-                else { selectedIds.delete(id); li.classList.remove('selected'); }
+                if (cb.checked) {
+                    selectedIds.add(id);
+                    li.classList.add('selected');
+                } else {
+                    selectedIds.delete(id);
+                    li.classList.remove('selected');
+                }
                 updateMinuting();
             });
 
@@ -898,17 +1041,23 @@
                     const target = document.getElementById('minutingSection');
                     if (!target) return;
                     // Account for possible fixed headers on desktop/mobile
-                    const fixedHeader = document.querySelector('.navbar.fixed-top, .navbar.navbar-fixed-top, header.fixed-top');
+                    const fixedHeader = document.querySelector(
+                        '.navbar.fixed-top, .navbar.navbar-fixed-top, header.fixed-top');
                     const headerHeight = fixedHeader ? fixedHeader.offsetHeight : 0;
                     const rect = target.getBoundingClientRect();
                     const top = rect.top + window.pageYOffset - headerHeight - 8; // small offset
-                    window.scrollTo({ top: Math.max(top, 0), behavior: 'smooth' });
+                    window.scrollTo({
+                        top: Math.max(top, 0),
+                        behavior: 'smooth'
+                    });
                 }, 150);
             });
 
             // Minuting textarea character counter
             if (msgEl && msgCountEl) {
-                const updateCount = () => { msgCountEl.textContent = String(msgEl.value.length); };
+                const updateCount = () => {
+                    msgCountEl.textContent = String(msgEl.value.length);
+                };
                 msgEl.addEventListener('input', updateCount);
                 updateCount();
             }
@@ -922,15 +1071,19 @@
                 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
                 let recognition = null;
                 let isListening = false; // state governed by onstart/onend
-                let isStarting = false;  // guard to avoid double .start()
+                let isStarting = false; // guard to avoid double .start()
 
-                function setStatus(text) { sttStatus.textContent = text; }
+                function setStatus(text) {
+                    sttStatus.textContent = text;
+                }
+
                 function updateBtnUI() {
                     sttBtn.classList.toggle('listening', isListening);
                     sttBtn.setAttribute('aria-pressed', String(isListening));
                     sttBtn.title = isListening ? 'Listening… Click to stop' : 'Click to speak';
                     setStatus(isListening ? 'Listening…' : 'Click to speak');
                 }
+
                 function caretToEnd() {
                     try {
                         msgEl.selectionStart = msgEl.value.length;
@@ -962,10 +1115,18 @@
                 recognition.interimResults = true;
                 recognition.lang = document.documentElement.lang || 'en-US';
 
-                recognition.onstart = () => { isStarting = false; isListening = true; updateBtnUI(); };
+                recognition.onstart = () => {
+                    isStarting = false;
+                    isListening = true;
+                    updateBtnUI();
+                };
                 recognition.onaudiostart = () => setStatus('Listening…');
                 recognition.onspeechend = () => setStatus('Processing…');
-                recognition.onend = () => { isStarting = false; isListening = false; updateBtnUI(); };
+                recognition.onend = () => {
+                    isStarting = false;
+                    isListening = false;
+                    updateBtnUI();
+                };
                 recognition.onerror = (e) => {
                     console.error('SpeechRecognition error:', e);
                     isStarting = false;
@@ -975,7 +1136,8 @@
                     switch (e.error) {
                         case 'not-allowed':
                         case 'service-not-allowed':
-                            showFeedback('warning', 'Microphone permission denied. Allow mic in browser site settings.');
+                            showFeedback('warning',
+                                'Microphone permission denied. Allow mic in browser site settings.');
                             setStatus('Permission denied');
                             break;
                         case 'audio-capture':
@@ -1036,11 +1198,16 @@
 
                 sttBtn.addEventListener('click', toggleListening);
                 sttBtn.addEventListener('keydown', (e) => {
-                    if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); toggleListening(); }
+                    if (e.code === 'Space' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleListening();
+                    }
                 });
 
                 // Stop listening when the page/tab becomes hidden
-                document.addEventListener('visibilitychange', () => { if (document.hidden && isListening) recognition.stop(); });
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden && isListening) recognition.stop();
+                });
             })();
 
             // Send / Share button integration
@@ -1073,7 +1240,9 @@
                     try {
                         const res = await fetch(sendDocUrl, {
                             method: 'POST',
-                            headers: { 'Accept': 'application/json' },
+                            headers: {
+                                'Accept': 'application/json'
+                            },
                             body: fd,
                         });
 
@@ -1081,7 +1250,9 @@
                         if (res.ok) {
                             showFeedback('success', 'Document sent successfully.');
                             closeShareModal();
-                            setTimeout(() => { window.location.reload(); }, 1200);
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1200);
                             return;
                         }
 
@@ -1099,7 +1270,8 @@
                         }
                     } catch (err) {
                         console.error(err);
-                        showFeedback('danger', 'Network error. Please check your connection and try again.');
+                        showFeedback('danger',
+                            'Network error. Please check your connection and try again.');
                     } finally {
                         sendBtn.disabled = false;
                         sendBtn.textContent = prevText;
@@ -1110,11 +1282,19 @@
             function showFeedback(type, message) {
                 if (!feedbackEl) return;
                 feedbackEl.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-warning');
-                const cls = type === 'success' ? 'alert-success' : type === 'warning' ? 'alert-warning' : 'alert-danger';
+                const cls = type === 'success' ? 'alert-success' : type === 'warning' ? 'alert-warning' :
+                    'alert-danger';
                 feedbackEl.classList.add(cls);
                 feedbackEl.textContent = message;
             }
-            function hideFeedback() { if (feedbackEl) { feedbackEl.classList.add('d-none'); feedbackEl.textContent = ''; } }
+
+            function hideFeedback() {
+                if (feedbackEl) {
+                    feedbackEl.classList.add('d-none');
+                    feedbackEl.textContent = '';
+                }
+            }
+
             function normalizeErrors(errors) {
                 if (Array.isArray(errors)) return errors.join('; ');
                 if (typeof errors === 'string') return errors;
@@ -1126,6 +1306,7 @@
                 }
                 return msgs.length ? msgs.join('\n') : 'Validation failed.';
             }
+
             function closeShareModal() {
                 const modal = document.getElementById('shareModal');
                 if (window.$ && typeof window.$('#shareModal').modal === 'function') {

@@ -299,7 +299,7 @@
                             <span class="d-inline d-sm-none">Reply</span>
                         </button>
                     </a>
-                    <a href="{{ route('document.send', $document_received->document_id) }}" class="text-decoration-none">
+                    {{-- <a href="{{ route('document.send', $document_received->document_id) }}" class="text-decoration-none">
                         <button class="btn">
                             <svg viewBox="0 0 24 24">
                                 <path fill="currentColor" d="M14 9v-4l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z" />
@@ -307,15 +307,15 @@
                             <span class="d-none d-sm-inline">Minute the mail</span>
                             <span class="d-inline d-sm-none">Minute</span>
                         </button>
-                    </a>
-                    {{-- <button class="btn" type="button" data-toggle="modal" data-target="#forwardedMessageModal">
-                        <svg viewBox="0 0 24 24">
-                            <path fill="currentColor" d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
-                        </svg>
-                        <span class="d-none d-md-inline">Previous Minuting</span>
-                        <span class="d-inline d-md-none">History</span>
-                    </button> --}}
-                    <a href="#priviousmiuting">
+                    </a> --}}
+                   <button id="shareBtn"
+                                        class="btn btn-sm btn-outline-secondary ms-1"
+                                        type="button"
+                                        data-title="{{ $document_received->document->title }}"
+                                        data-number="{{ $document_received->document->docuent_number }}">
+                                    <i class="fa fa-share-alt me-1"></i> Minute and Send
+                                </button>
+                    {{-- <a href="#priviousmiuting">
                         <button class="btn" type="button">
                             <svg viewBox="0 0 24 24">
                                 <path fill="currentColor" d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
@@ -323,7 +323,7 @@
                             <span class="d-none d-md-inline">Previous Minuting</span>
                             <span class="d-inline d-md-none">History</span>
                         </button>
-                    </a>
+                    </a> --}}
 
                     <a href="{{ route('track', $document_received->document_id) }}" class="text-decoration-none">
                         <button class="btn">
