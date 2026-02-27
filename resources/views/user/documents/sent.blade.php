@@ -29,6 +29,7 @@
                             <th scope="col" style="width: 18.66%;" >Document No</th>
                             <th scope="col" style="width: 25.66%;" >Title</th>
                             <th scope="col">Sent To</th>
+                            <th scope="col">Status</th>
                             {{-- <th scope="col" style="width: 16.66%;">Comment</th> --}}
                             <th scope="col" >Date</th>
                         </tr>
@@ -60,9 +61,10 @@
                     { data: 'doc_no', name: 'documents.docuent_number' },
                     { data: 'title', name: 'documents.title' },
                     { data: 'sent_to', name: 'recipient_details' },
+                    { data: 'status', name: 'status' },
                     { data: 'date', name: 'file_movements.updated_at' },
                 ],
-                order: [[0, 'asc']],
+                order: [[0, 'desc']],
                 language: {
                     searchPlaceholder: "Search here...",
                     zeroRecords: "No matching records found",
