@@ -54,7 +54,7 @@
                         <div class="row">
                             <div class="col-sm-12 col-xl-6 mb-3" >
                                 <label for="exampleInputEmail1" class="form-label">Document Number</label>
-                                <input type="text" name="document_number" class="form-control" value="{{ 'BN/doc/' . substr(Str::uuid(), 0, 6)}}" placeholder="document number" readonly>
+                                <input type="text" name="document_number" class="form-control" value="{{ 'EDMS/' . substr(Str::uuid(), 0, 6) . date('ymd')}}" placeholder="document number" readonly>
                                 <input type="text" name="uploaded_by" class="form-control" value="{{Auth::user()->id}}" placeholder="document number" hidden>
                                 <input type="text" name="department_id" class="form-control" value="{{Auth::user()->department_id}}" placeholder="document number" hidden>
                                 <input type="text" name="tenant_id" class="form-control" value="{{Auth::user()->tenant_id}}" placeholder="document number" hidden>

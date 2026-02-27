@@ -29,6 +29,7 @@
                             <th scope="col" style="width: 18.66%;" >Document No</th>
                             <th scope="col" style="width: 25.66%;" >Title</th>
                             <th scope="col">Sent To</th>
+                            <th scope="col">Status</th>
                             {{-- <th scope="col" style="width: 16.66%;">Comment</th> --}}
                             <th scope="col" >Date</th>
                             {{-- <th scope="col">Actions</th> --}}
@@ -61,9 +62,10 @@
                 { data: 'doc_no', name: 'documents.docuent_number' },
                 { data: 'subject', name: 'documents.title' },
                 { data: 'sent_to', name: 'recipient_details' },
+                { data: 'status', name: 'status' },
                 { data: 'date', name: 'document_movements.updated_at' }
             ],
-            order: [[4, 'desc']],
+            order: [[5, 'desc']],
             lengthMenu: [10, 25, 50, 100],
             language: {
                 searchPlaceholder: 'Search here...',
