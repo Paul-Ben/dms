@@ -857,6 +857,17 @@ class SuperAdminActions extends Controller
             })->values();
         }
 
+        // Pagination manually
+        $page = $request->input('page', 1);
+        $perPage = 10;
+        $users = new \Illuminate\Pagination\LengthAwarePaginator(
+            $users->forPage($page, $perPage),
+            $users->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
         // Selected member (for document activity right panel)
         $selectedMemberId = (int) $request->query('member');
         $selectedUser = null;
