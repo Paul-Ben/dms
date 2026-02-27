@@ -5,6 +5,7 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Models\Document;
 use App\Models\FileMovement;
+use App\Helpers\ViewDetector;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -154,14 +155,19 @@ class DocumentController extends Controller
         foreach ($rows as $i => $fm) {
             $doc = $fm->document;
             $sender = $fm->sender;
+            $recipient = $fm->recipient;
             $viewUrl = route('document.view', $fm->id);
             $actionHtml = '<a href="' . e($viewUrl) . '" class="nav-item">View</a>';
+            $recipientName = optional($recipient)->name ?? '';
+            $statusLabel = ViewDetector::hasBeenViewed($fm->id, optional($recipient)->id ?? 0)
+                ? 'Viewed by ' . $recipientName
+                : 'Sent to ' . $recipientName;
             $data[] = [
                 'index' => $indexStart + $i,
                 'doc_no' => '<a href="' . e($viewUrl) . '">' . e(optional($doc)->docuent_number) . '</a>',
                 'title' => e(optional($doc)->title),
                 'sent_by' => e(optional($sender)->name ?? ''),
-                'status' => e(optional($doc)->status),
+                'status' => e($statusLabel),
                 'action' => $actionHtml,
             ];
         }
@@ -207,7 +213,13 @@ class DocumentController extends Controller
 
         $baseQuery = FileMovement::query()
             ->with(['document', 'recipient.userDetail.tenant'])
-            ->where('sender_id', $user->id);
+            ->where('sender_id', $user->id)
+            ->whereIn('id', function($query) use ($user) {
+                $query->select(DB::raw('MAX(id)'))
+                    ->from('file_movements')
+                    ->where('sender_id', $user->id)
+                    ->groupBy('document_id');
+            });
 
         $recordsTotal = (clone $baseQuery)->count();
 
@@ -244,11 +256,16 @@ class DocumentController extends Controller
             $designation = optional(optional($recipient)->userDetail)->designation;
             $tenantName = optional(optional(optional($recipient)->userDetail)->tenant)->name;
             $sentTo = trim(($designation ? $designation : '') . ($tenantName ? ', ' . $tenantName : ''));
+            $recipientName = optional($recipient)->name ?? '';
+            $statusLabel = ViewDetector::hasBeenViewed($fm->id, optional($recipient)->id ?? 0)
+                ? 'Viewed by ' . $recipientName
+                : 'Sent to ' . $recipientName;
             $data[] = [
                 'index' => $indexStart + $i,
                 'doc_no' => '<a href="' . route('document.view', $fm->id) . '">' . e(optional($doc)->docuent_number) . '</a>',
                 'title' => e(optional($doc)->title),
                 'sent_to' => e($sentTo),
+                'status' => e($statusLabel),
                 'date' => e(optional($fm->updated_at)->format('M j, Y g:i A')),
             ];
         }
