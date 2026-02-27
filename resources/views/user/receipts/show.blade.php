@@ -109,7 +109,7 @@
                 <h6 class="text-uppercase text-muted mb-2">Payment Details</h6>
                 <div class="small">
                   <div>Channel: {{ $receipt->payment_channel ?? 'Card' }}</div>
-                  <div>Gateway: {{ $receipt->gateway ?? 'Paystack' }}</div>
+                  <div>Gateway: {{ $receipt->gateway ?? 'Credo' }}</div>
                   <div>Transaction ID: {{ $receipt->transaction_id ?? ($receipt->reference ?? '—') }}</div>
                   <div>Reference: {{ $receipt->reference ?? ('RCT-' . ($receipt->id ?? '000')) }}</div>
                 </div>
