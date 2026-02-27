@@ -1,5 +1,11 @@
 @extends('dashboards.index')
 @section('content')
+    <style>
+        .hover-bg-light:hover {
+            background-color: rgba(0,0,0,0.05);
+            transition: background-color 0.2s;
+        }
+    </style>
     <div>
         <!-- Sale & Revenue Start -->
         <div class="container-fluid pt-4 px-4">
@@ -62,19 +68,20 @@
                             <a href="">Show All</a>
                         </div>
                         @forelse ($activities as $activity)
-                            <div class="d-flex align-items-center border-bottom py-3">
-                                <img class="rounded-circle flex-shrink-0"
-                                    src="{{ asset('uploads/avatars/' . $authUser->userDetail->avatar) }}" alt=""
-                                    style="width: 40px; height: 40px;">
-                                <div class="w-100 ms-3">
-                                    <div class="d-flex w-100 justify-content-between">
-                                        <h6 class="mb-0">{{ $activity->user->name }}</h6>
-                                        <small>{{ $activity->created_at->diffForHumans() }}</small>
+                            <a href="{{ $activity->url }}" class="text-decoration-none text-dark d-block">
+                                <div class="d-flex align-items-center border-bottom py-3 hover-bg-light">
+                                    <img class="rounded-circle flex-shrink-0"
+                                        src="{{ asset('uploads/avatars/' . ($activity->user->userDetail->avatar ?? $authUser->userDetail->avatar)) }}" alt=""
+                                        style="width: 40px; height: 40px;">
+                                    <div class="w-100 ms-3">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h6 class="mb-0">{{ $activity->user->name }}</h6>
+                                            <small>{{ $activity->created_at->diffForHumans() }}</small>
+                                        </div>
+                                        <span>{{ $activity->action }}</span>
                                     </div>
-                                    <span>{{ $activity->action }}</span>
                                 </div>
-                            </div>
-
+                            </a>
                         @empty
                             <div class="d-flex align-items-center border-bottom py-3">
                                 <div class="w-100 ms-3">

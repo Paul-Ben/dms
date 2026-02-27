@@ -355,8 +355,8 @@
                                                             </span>
                                                         </td>
                                                         <td>
-                                                            <a href="{{ route('folders.edit-permission', ['folder' => $folder->id, 'permission' => $permission->id]) }}" 
-                                                               class="btn btn-sm btn-outline-primary">
+                                                            <a href="{{ route('folders.permissions', $folder) }}" 
+                                                               class="btn btn-sm btn-outline-primary" title="Manage Permissions">
                                                                 <i class="fas fa-edit"></i>
                                                             </a>
                                                         </td>
