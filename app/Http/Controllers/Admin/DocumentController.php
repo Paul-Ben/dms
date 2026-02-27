@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Document;
 use App\Models\UserDetails;
 use App\Models\FileMovement;
+use App\Helpers\ViewDetector;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -269,11 +270,16 @@ class DocumentController extends Controller
             $designation = optional(optional($recipient)->userDetail)->designation;
             $tenantName = optional(optional(optional($recipient)->userDetail)->tenant)->name;
             $sentTo = trim(($designation ? $designation : '') . ($tenantName ? ', ' . $tenantName : ''));
+            $recipientName = optional($recipient)->name ?? '';
+            $statusLabel = ViewDetector::hasBeenViewed($fm->id, optional($recipient)->id ?? 0)
+                ? 'Viewed by ' . $recipientName
+                : 'Sent to ' . $recipientName;
             $data[] = [
                 'index' => $indexStart + $i,
                 'doc_no' => '<a href="' . route('document.view', $fm->id) . '">' . e($doc->docuent_number) . '</a>',
                 'subject' => e($doc->title),
                 'sent_to' => e($sentTo),
+                'status' => e($statusLabel),
                 'date' => e(optional($fm->updated_at)->format('M j, Y g:i A')),
             ];
         }
