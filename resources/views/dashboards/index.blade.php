@@ -161,14 +161,20 @@
                                 class="dropdown-item {{ request()->routeIs('document.index') ? 'active' : '' }}"><i
                                     class="fa fa-th me-2"></i>My Documents</a>
                             @role('Admin|Secretary|Staff|IT Admin|superadmin')
-                                <a href="{{ route('document.create') }}"
+                                {{-- <a href="{{ route('document.create') }}"
                                     class="dropdown-item {{ request()->routeIs('document.create') ? 'active' : '' }}"><i
-                                        class="fa fa-plus me-2"></i>Add Document</a>
+                                        class="fa fa-plus me-2"></i>Add Document</a> --}}
+                                 <a href="{{ route('admin.docmgt') }}"
+                           class="dropdown-item {{ request()->routeIs('admin.docmgt') ? 'active' : '' }}"><i
+                               class="fa fa-users me-2"></i>Doc Mgt</a>       
                             @endrole
                             @role('User')
                                 <a href="{{ route('document.file') }}"
                                     class="dropdown-item {{ request()->routeIs('document.file') ? 'active' : '' }}"><i
                                         class="fa fa-plus me-2"></i>File a Document</a>
+                                <a href="{{ route('document.uploads') }}"
+                                    class="dropdown-item {{ request()->routeIs('document.uploads') ? 'active' : '' }}"><i
+                                        class="fa fa-upload me-2"></i>Uploaded Documents</a>
                             @endrole
                             <a href="{{ route('document.received') }}"
                                 class="dropdown-item {{ request()->routeIs('document.received') ? 'active' : '' }}"><i
@@ -177,6 +183,12 @@
                                 class="dropdown-item {{ request()->routeIs('document.sent') ? 'active' : '' }}"><i
                                     class="fa fa-paper-plane me-2"></i>Treated Mails</a>
                         </div>
+                    
+                    {{-- @role('Admin|IT Admin|Staff|Secretary|superadmin')
+                        <a href="{{ route('admin.docmgt') }}"
+                           class="nav-item nav-link {{ request()->routeIs('admin.docmgt') ? 'active' : '' }}"><i
+                               class="fa fa-users me-2"></i>Doc Mgt</a>
+                    @endrole --}}
 
 
                         {{-- <a href="{{ route('document.index') }}"
@@ -231,6 +243,11 @@
                                 </div>
                             </div>
                         @endrole
+                        {{-- @role('Admin|Secretary|Staff|IT Admin|superadmin')
+                            <a href="{{ route('conversations.index') }}"
+                               class="nav-item nav-link {{ request()->routeIs('conversations.index') ? 'active' : '' }}"><i
+                                    class="fa fa-comments me-2"></i>Conversations</a>
+                        @endrole --}}
                         @role('IT Admin')
                             <a href="{{ route('designation.index') }}"
                                 class="nav-item nav-link {{ request()->routeIs('designation.index') ? 'active' : '' }}"><i
