@@ -94,17 +94,14 @@ class DocumentStorage
             $result = $cloudinary->upload($data->file('file_path'), $folder);
 
 
-            // Create the document record
-            Document::create([
+            // Create the document record and return reference info
+            $doc = Document::create([
                 'title' => $data->title,
                 'docuent_number' => $data->document_number,
-                // 'file_path' => $data->file_path,
-                // 'file_path' => 'documents' . '/' . $tenantId . '/' . $uploadedBy . '/' . $filename,
                 'file_path' => $result['secure_url'],
                 'uploaded_by' => $authUser->id,
                 'status' => $data->status ?? 'pending',
                 'description' => $data->description,
-                // 'metadata' => json_encode($data->metadata),
             ]);
         } catch (\Exception $e) {
             Log::error('Document upload error: ' . $e->getMessage());
@@ -123,6 +120,8 @@ class DocumentStorage
         return [
             'status' => 'success',
             'message' => 'Document submitted successfully!',
+            'document_id' => isset($doc) ? $doc->id : null,
+            'document_number' => isset($doc) ? $doc->docuent_number : null,
         ];
     }
 
@@ -208,7 +207,7 @@ class DocumentStorage
                 'user_id' => Auth::user()->id,
                 'created_at' => now(),
             ]);
-            Activity::insert([
+            $activities = [
                 [
                     'action' => 'Sent Document',
                     'user_id' => Auth::user()->id,
@@ -219,7 +218,21 @@ class DocumentStorage
                     'user_id' => $recipient,
                     'created_at' => now(),
                 ],
-            ]);
+            ];
+            $lastMovement = FileMovement::where('document_id', $data->document_id)
+                ->where('id', '<', $document_action->id)
+                ->orderBy('id', 'desc')
+                ->first();
+            if ($lastMovement && $lastMovement->sender_id !== Auth::id()) {
+                $senderName = optional(\App\Models\User::find(Auth::id()))->name ?? 'Unknown';
+                $recipientName = optional(\App\Models\User::find($recipient))->name ?? 'Unknown';
+                $activities[] = [
+                    'action' => "Forwarded by {$senderName} to {$recipientName}",
+                    'user_id' => Auth::id(),
+                    'created_at' => now(),
+                ];
+            }
+            Activity::insert($activities);
         }
         return [
             'status' => 'success',
