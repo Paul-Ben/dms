@@ -778,6 +778,378 @@ class SuperAdminActions extends Controller
         return view('errors.404', compact('authUser', 'userTenant'));
     }
 
+    /**
+     * Admin Document Management: Chat-style tenant members listing.
+     * Visible to 'superadmin' and 'Admin' only. Shows users within current admin's tenant
+     * with avatar, name, last activity, and chat preview snippet.
+     */
+    public function adminDocMgt(Request $request)
+    {
+        $authUser = Auth::user();
+
+        // Gate access to Admin, IT Admin, Staff, Secretary, superadmin roles
+        if (
+            !$authUser ||
+            !in_array(
+                strtolower($authUser->default_role),
+                ['admin', 'superadmin', 'it admin', 'staff', 'secretary']
+            )
+        ) {
+            abort(403, 'Unauthorized');
+        }
+
+        // Resolve tenant via userDetail relation (existing pattern in codebase)
+        $userDetail = $authUser->userDetail;
+       
+        if (!$userDetail || !$userDetail->tenant_id) {
+            // No tenant context, show empty list gracefully
+            $users = collect();
+            return view('admin.docmgt.index', compact('users'));
+        }
+
+        $tenantId = $userDetail->tenant_id;
+
+        // Fetch users in the same tenant (excluding current user), with last activity eager-loaded
+        $users = \App\Models\User::whereHas('userDetail', function ($q) use ($tenantId) {
+                $q->where('tenant_id', $tenantId);
+            })
+            ->where('id', '!=', $authUser->id)
+            ->with([
+                'userDetail',
+                'activities' => function ($q) {
+                    $q->latest()->limit(1);
+                },
+            ])
+            ->orderBy('name')
+            ->get();
+
+        // Build activity map and sort users by most recent document interaction
+        $userIds = $users->pluck('id');
+        $memberActivity = [];
+
+        if ($userIds->isNotEmpty()) {
+            $movementsBetween = \App\Models\FileMovement::query()
+                ->select(['id', 'sender_id', 'recipient_id', 'updated_at'])
+                ->where(function ($q) use ($authUser, $userIds) {
+                    $q->where('sender_id', $authUser->id)
+                      ->whereIn('recipient_id', $userIds);
+                })
+                ->orWhere(function ($q) use ($authUser, $userIds) {
+                    $q->whereIn('sender_id', $userIds)
+                      ->where('recipient_id', $authUser->id);
+                })
+                ->orderBy('updated_at', 'desc')
+                ->get();
+
+            foreach ($movementsBetween as $fm) {
+                $counterpartId = ($fm->sender_id === $authUser->id) ? $fm->recipient_id : $fm->sender_id;
+                if (!isset($memberActivity[$counterpartId])) {
+                    $memberActivity[$counterpartId] = [
+                        'last_at' => $fm->updated_at,
+                        'direction' => ($fm->sender_id === $counterpartId) ? 'incoming' : 'outgoing',
+                    ];
+                }
+            }
+
+            // Sort users by most recent interaction (latest first), users without activity go last
+            $users = $users->sortByDesc(function ($u) use ($memberActivity) {
+                return isset($memberActivity[$u->id]) ? $memberActivity[$u->id]['last_at'] : null;
+            })->values();
+        }
+
+        // Selected member (for document activity right panel)
+        $selectedMemberId = (int) $request->query('member');
+        $selectedUser = null;
+        $movements = collect();
+
+        if ($selectedMemberId) {
+            // Ensure selected member belongs to same tenant
+            $selectedUser = \App\Models\User::where('id', $selectedMemberId)
+                ->whereHas('userDetail', function ($q) use ($tenantId) {
+                    $q->where('tenant_id', $tenantId);
+                })
+                ->first();
+
+            if ($selectedUser) {
+                // Document activity between current admin and the selected member
+                $movements = \App\Models\FileMovement::with(['document', 'sender', 'recipient'])
+                    ->where(function ($q) use ($authUser, $selectedMemberId) {
+                        // Outgoing from admin to member
+                        $q->where('sender_id', $authUser->id)
+                          ->where('recipient_id', $selectedMemberId);
+                    })
+                    ->orWhere(function ($q) use ($authUser, $selectedMemberId) {
+                        // Incoming to admin from member
+                        $q->where('sender_id', $selectedMemberId)
+                          ->where('recipient_id', $authUser->id);
+                    })
+                    ->orderBy('updated_at', 'desc')
+                    ->get();
+            }
+        }
+
+        return view('admin.docmgt.index', [
+            'users' => $users,
+            // Latest messages no longer used; right panel shows document activity
+            'latestMessages' => collect(),
+            'authUser' => $authUser,
+            'userDetail' => $userDetail,
+            'selectedUser' => $selectedUser,
+            'movements' => $movements,
+            'selectedMemberId' => $selectedMemberId,
+            'memberActivity' => $memberActivity,
+        ]);
+    }
+
+    /**
+     * JSON endpoint: Tenant members sorted by latest document activity, with incoming flag.
+     */
+    public function adminDocMgtActivity(Request $request)
+    {
+        $authUser = Auth::user();
+        if (
+            !$authUser ||
+            !in_array(
+                strtolower($authUser->default_role),
+                ['admin', 'superadmin', 'it admin', 'staff', 'secretary']
+            )
+        ) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $userDetail = $authUser->userDetail;
+        if (!$userDetail || !$userDetail->tenant_id) {
+            return response()->json(['members' => []]);
+        }
+
+        $tenantId = $userDetail->tenant_id;
+        $selectedMemberId = (int) $request->query('member');
+
+        // Eligible users in tenant
+        $usersQuery = \App\Models\User::whereHas('userDetail', function ($q) use ($tenantId) {
+                $q->where('tenant_id', $tenantId);
+            })
+            ->where('id', '!=', $authUser->id)
+            ->with(['userDetail']);
+
+        // Optional case-insensitive search by name, first_name, last_name, or full name
+        $q = trim((string) $request->query('q'));
+        if ($q && strlen($q) >= 2) {
+            $like = '%' . $q . '%';
+            $usersQuery->where(function ($qq) use ($like) {
+                $qq->where('name', 'like', $like)
+                   ->orWhereHas('userDetail', function ($qd) use ($like) {
+                       $qd->where('first_name', 'like', $like)
+                          ->orWhere('last_name', 'like', $like)
+                          ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$like]);
+                   });
+            });
+        }
+
+        $users = $usersQuery->get();
+
+        $userIds = $users->pluck('id');
+        $memberActivity = [];
+
+        if ($userIds->isNotEmpty()) {
+            $movementsBetween = \App\Models\FileMovement::query()
+                ->select(['id', 'sender_id', 'recipient_id', 'updated_at'])
+                ->where(function ($q) use ($authUser, $userIds) {
+                    $q->where('sender_id', $authUser->id)
+                      ->whereIn('recipient_id', $userIds);
+                })
+                ->orWhere(function ($q) use ($authUser, $userIds) {
+                    $q->whereIn('sender_id', $userIds)
+                      ->where('recipient_id', $authUser->id);
+                })
+                ->orderBy('updated_at', 'desc')
+                ->get();
+
+            foreach ($movementsBetween as $fm) {
+                $counterpartId = ($fm->sender_id === $authUser->id) ? $fm->recipient_id : $fm->sender_id;
+                if (!isset($memberActivity[$counterpartId])) {
+                    $memberActivity[$counterpartId] = [
+                        'last_at' => $fm->updated_at,
+                        'incoming' => ($fm->sender_id === $counterpartId),
+                    ];
+                }
+            }
+        }
+
+        // Sort users by latest interaction timestamp (preserve recent activity order)
+        $sorted = $users->sortByDesc(function ($u) use ($memberActivity) {
+            return isset($memberActivity[$u->id]) ? $memberActivity[$u->id]['last_at'] : null;
+        })->values();
+
+        // Shape JSON
+        $members = $sorted->map(function ($u) use ($memberActivity, $selectedMemberId) {
+            $detail = $u->userDetail;
+            $avatarRaw = optional($detail)->avatar_url ?? optional($detail)->avatar;
+            if (!$avatarRaw) {
+                $avatar = asset('avatar.jpeg');
+            } else if (filter_var($avatarRaw, FILTER_VALIDATE_URL)) {
+                $avatar = $avatarRaw;
+            } else {
+                $avatar = asset('uploads/avatars/' . $avatarRaw);
+            }
+
+            $act = $memberActivity[$u->id] ?? null;
+            $lastAt = $act['last_at'] ?? null;
+            return [
+                'id' => $u->id,
+                'name' => $u->name,
+                'avatar' => $avatar,
+                'incoming' => (bool)($act['incoming'] ?? false),
+                'last_at' => $lastAt ? $lastAt->toISOString() : null,
+                'last_human' => $lastAt ? $lastAt->diffForHumans() : '—',
+                'href' => route('admin.docmgt', ['member' => $u->id]),
+                'active' => $selectedMemberId === $u->id,
+            ];
+        });
+
+        return response()->json(['members' => $members]);
+    }
+
+    /**
+     * JSON endpoint: Document movements between admin and selected member.
+     */
+    public function adminDocMgtMemberActivity(Request $request)
+    {
+        $authUser = Auth::user();
+        if (
+            !$authUser ||
+            !in_array(
+                strtolower($authUser->default_role),
+                ['admin', 'superadmin', 'it admin', 'staff', 'secretary']
+            )
+        ) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $userDetail = $authUser->userDetail;
+        if (!$userDetail || !$userDetail->tenant_id) {
+            return response()->json(['movements' => []]);
+        }
+
+        $tenantId = $userDetail->tenant_id;
+        $memberId = (int) $request->query('member');
+        if (!$memberId) {
+            return response()->json(['movements' => []]);
+        }
+
+        // Ensure member belongs to same tenant
+        $member = \App\Models\User::where('id', $memberId)
+            ->whereHas('userDetail', function ($q) use ($tenantId) {
+                $q->where('tenant_id', $tenantId);
+            })
+            ->first();
+        if (!$member) {
+            return response()->json(['movements' => []]);
+        }
+
+        $movements = \App\Models\FileMovement::with(['document'])
+            ->where(function ($q) use ($authUser, $memberId) {
+                $q->where('sender_id', $authUser->id)
+                  ->where('recipient_id', $memberId);
+            })
+            ->orWhere(function ($q) use ($authUser, $memberId) {
+                $q->where('sender_id', $memberId)
+                  ->where('recipient_id', $authUser->id);
+            })
+            ->orderBy('updated_at', 'desc')
+            ->get()
+            ->map(function ($fm) use ($authUser) {
+                $doc = $fm->document;
+                $direction = ($fm->sender_id === $authUser->id) ? 'Sent' : 'Received';
+                $downloadUrl = $doc && $doc->file_path ? asset($doc->file_path) : null;
+                return [
+                    'id' => $fm->id,
+                    'doc_no' => optional($doc)->docuent_number,
+                    'title' => optional($doc)->title,
+                    'updated_at' => optional($fm->updated_at)->toISOString(),
+                    'updated_human' => optional($fm->updated_at)->diffForHumans(),
+                    'direction' => $direction,
+                    'view_url' => route('document.view', $fm->id),
+                    'download_url' => $downloadUrl,
+                ];
+            });
+
+        return response()->json(['movements' => $movements]);
+    }
+
+    /**
+     * JSON endpoint: Recipients list for New Document modal with search.
+     * Filters by tenant, excludes current user, supports case-insensitive search
+     * on name, first_name, last_name, full name, and designation.
+     */
+    public function adminDocMgtRecipientSearch(Request $request)
+    {
+        $authUser = Auth::user();
+        if (
+            !$authUser ||
+            !in_array(
+                strtolower($authUser->default_role),
+                ['admin', 'superadmin', 'it admin', 'staff', 'secretary']
+            )
+        ) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $userDetail = $authUser->userDetail;
+        if (!$userDetail || !$userDetail->tenant_id) {
+            return response()->json(['recipients' => []]);
+        }
+
+        $tenantId = $userDetail->tenant_id;
+
+        $usersQuery = \App\Models\User::whereHas('userDetail', function ($q) use ($tenantId) {
+                $q->where('tenant_id', $tenantId);
+            })
+            ->where('id', '!=', $authUser->id)
+            ->with(['userDetail' => function ($q) {
+                $q->with('tenant_department');
+            }])
+            ->orderBy('name');
+
+        $q = trim((string) $request->query('q'));
+        if ($q !== '') {
+            $like = '%' . $q . '%';
+            $usersQuery->where(function ($qq) use ($like) {
+                $qq->where('name', 'like', $like)
+                   ->orWhereHas('userDetail', function ($qd) use ($like) {
+                       $qd->where('first_name', 'like', $like)
+                          ->orWhere('last_name', 'like', $like)
+                          ->orWhere('designation', 'like', $like)
+                          ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$like]);
+                   });
+            });
+        }
+
+        $users = $usersQuery->get();
+
+        $recipients = $users->map(function ($u) {
+            $detail = $u->userDetail;
+            $dept = optional($detail->tenant_department)->name ?? optional($detail->tenant)->name;
+            $avatarRaw = optional($detail)->avatar_url ?? optional($detail)->avatar;
+            if (!$avatarRaw) {
+                $avatar = asset('avatar.jpeg');
+            } else if (filter_var($avatarRaw, FILTER_VALIDATE_URL)) {
+                $avatar = $avatarRaw;
+            } else {
+                $avatar = asset('uploads/avatars/' . $avatarRaw);
+            }
+            return [
+                'id' => $u->id,
+                'name' => $u->name,
+                'designation' => optional($detail)->designation,
+                'department' => $dept,
+                'avatar' => $avatar,
+            ];
+        });
+
+        return response()->json(['recipients' => $recipients]);
+    }
+
     public function user_edit(User $user)
     {
         try {
@@ -1597,6 +1969,239 @@ class SuperAdminActions extends Controller
         return view('errors.404', compact('authUser', 'userTenant'));
     }
 
+    /**
+     * Upload-first flow: validate inputs, compute page count, upload to Cloudinary,
+     * create a DocumentHold record, then redirect to uploads list.
+     */
+    public function uploadDocument(Request $request)
+    {
+        $authUser = Auth::user();
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'document_number' => 'required|string|max:255',
+            'file_path' => 'required|mimes:pdf|max:10240',
+            'uploaded_by' => 'required|exists:users,id',
+            'description' => 'nullable|string',
+            'recipient_id' => 'required|exists:users,id',
+            'metadata' => 'nullable',
+        ]);
+
+        try {
+            // Compute page count BEFORE upload
+            $file = $request->file('file_path');
+            $fpdi = new Fpdi();
+            $pageCount = $fpdi->setSourceFile($file->getPathname());
+
+            // Compute filing cost
+            $fileCharge = FileCharge::where('status', 'active')->first();
+            $perPage = (int) optional($fileCharge)->file_charge ?: 0;
+            $amount = $pageCount * $perPage;
+
+            // Upload to Cloudinary
+            $uploader = new CloudinaryHelper();
+            $tenantId = optional($authUser->userDetail)->tenant_id;
+            $folder = 'edms_documents/' . ($tenantId ?? 'tenant') . '/' . $authUser->id;
+            $uploadResult = $uploader->upload($file, $folder);
+            $cloudUrl = null;
+            $pagesFromCloudinary = null;
+            // Cloudinary may return an ApiResponse (ArrayAccess) or a plain array
+            if (is_array($uploadResult)) {
+                $cloudUrl = $uploadResult['secure_url'] ?? null;
+                $pagesFromCloudinary = $uploadResult['pages'] ?? null;
+            } elseif ($uploadResult instanceof \ArrayAccess) {
+                try {
+                    $cloudUrl = $uploadResult['secure_url'] ?? null;
+                    $pagesFromCloudinary = $uploadResult['pages'] ?? null;
+                } catch (\Throwable $t) {
+                    Log::warning('Cloudinary ApiResponse access failed', ['error' => $t->getMessage()]);
+                }
+            } elseif (is_object($uploadResult) && method_exists($uploadResult, 'jsonSerialize')) {
+                $serialized = $uploadResult->jsonSerialize();
+                if (is_array($serialized)) {
+                    $cloudUrl = $serialized['secure_url'] ?? null;
+                    $pagesFromCloudinary = $serialized['pages'] ?? null;
+                }
+            }
+            if (!$cloudUrl) {
+                Log::error('Cloudinary upload returned unexpected result', ['result' => $uploadResult]);
+                return redirect()->back()->with([
+                    'message' => 'File upload failed. Please try again.',
+                    'alert-type' => 'error',
+                ]);
+            }
+
+            // Create hold record in a transaction
+            DB::transaction(function () use ($request, $authUser, $cloudUrl, $amount, $pageCount, $pagesFromCloudinary) {
+                $reference = Str::random(12);
+                $hold = new DocumentHold();
+                $hold->title = $request->title;
+                $hold->docuent_number = $request->document_number;
+                $hold->file_path = $cloudUrl; // now a permanent URL
+                $hold->uploaded_by = $authUser->id;
+                $hold->status = 'Pending';
+                $hold->payment_status = 'Unpaid';
+                $hold->description = $request->description;
+                $hold->reference = $reference;
+                $hold->amount = $amount; // filing cost cached
+                $hold->recipient_id = $request->recipient_id;
+                $meta = [
+                    'page_count' => $pageCount,
+                    'cloudinary_pages' => $pagesFromCloudinary,
+                ];
+                // Merge any incoming metadata
+                if ($request->filled('metadata')) {
+                    try {
+                        $incoming = is_array($request->metadata) ? $request->metadata : json_decode($request->metadata, true);
+                        if (is_array($incoming)) {
+                            $meta = array_merge($incoming, $meta);
+                        }
+                    } catch (\Throwable $t) {
+                        // Ignore malformed metadata
+                    }
+                }
+                $hold->metadata = json_encode($meta);
+                $hold->save();
+
+                Log::info('Upload-first: hold created', [
+                    'user_id' => $authUser->id,
+                    'doc_no' => $hold->docuent_number,
+                    'amount' => $amount,
+                    'reference' => $reference,
+                ]);
+            });
+
+            $notification = [
+                'message' => 'Document uploaded. Proceed to payment when ready.',
+                'alert-type' => 'success',
+            ];
+            return redirect()->route('document.uploads')->with($notification);
+        } catch (Exception $e) {
+            Log::error('Upload-first flow error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return redirect()->back()->with([
+                'message' => 'An error occurred during upload: ' . $e->getMessage(),
+                'alert-type' => 'error',
+            ]);
+        }
+    }
+
+    /**
+     * List uploaded documents and holds for current user with Pay/Send actions.
+     */
+    public function listUploadedDocuments()
+    {
+        $authUser = Auth::user();
+        $userdetails = UserDetails::where('user_id', $authUser->id)->first();
+        $userTenant = Tenant::where('id', optional($userdetails)->tenant_id)->first();
+
+        // Show only holds that are still pending payment
+        $holds = DocumentHold::where('uploaded_by', $authUser->id)
+            ->where(function ($q) {
+                $q->whereNull('payment_status')
+                  ->orWhereRaw('LOWER(payment_status) != ?', ['paid']);
+            })
+            ->orderByDesc('id')
+            ->get();
+        // Show paid documents ready to send (or already sent)
+        $documents = Document::where('uploaded_by', $authUser->id)
+            ->whereRaw('LOWER(COALESCE(payment_status, "")) = ?', ['paid'])
+            ->orderByDesc('id')
+            ->get();
+            
+        return view('user.documents.uploads', compact('holds', 'documents', 'authUser', 'userTenant'));
+    }
+
+    /**
+     * Initialize Credo payment for a given hold.
+     */
+    public function initiatePayment(Request $request, DocumentHold $hold)
+    {
+        $authUser = Auth::user();
+        if ($hold->uploaded_by !== $authUser->id) {
+            Log::warning('Payment initiation blocked: ownership mismatch', ['hold_id' => $hold->id, 'user_id' => $authUser->id]);
+            return redirect()->route('document.uploads')->with([
+                'message' => 'Unauthorized payment initiation.',
+                'alert-type' => 'error',
+            ]);
+        }
+        if (in_array($hold->status, ['Paid', 'Successful'])) {
+            return redirect()->route('document.uploads')->with([
+                'message' => 'This document is already paid.',
+                'alert-type' => 'info',
+            ]);
+        }
+
+        $reference = $hold->reference ?: Str::random(12);
+        if (!$hold->reference) {
+            $hold->reference = $reference;
+            $hold->save();
+        }
+
+        try {
+            $payload = [
+                'email' => $authUser->email,
+                'amount' => ($hold->amount * 100),
+                'reference' => $reference,
+                'callbackUrl' => route('etranzact.callBack'),
+                'bearer' => 0,
+            ];
+
+            $response = Http::accept('application/json')
+                ->withHeaders([
+                    'Authorization' => env('CREDO_PUBLIC_KEY'),
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                ])
+                ->timeout(15)
+                ->retry(2, 1000)
+                ->post(env('CREDO_URL') . '/transaction/initialize', $payload);
+
+            if (!$response->successful()) {
+                Log::warning('Credo init attempt1 failed', ['status' => $response->status(), 'body' => $response->body()]);
+                $response = Http::accept('application/json')
+                    ->withHeaders([
+                        'Authorization' => 'Bearer ' . env('CREDO_PUBLIC_KEY'),
+                        'Content-Type' => 'application/json',
+                        'Accept' => 'application/json',
+                    ])
+                    ->timeout(15)
+                    ->retry(2, 1000)
+                    ->post(env('CREDO_URL') . '/transaction/initialize', $payload);
+            }
+
+            if (!$response->successful()) {
+                Log::error('Credo init failed', ['status' => $response->status(), 'body' => $response->body()]);
+                return redirect()->route('document.uploads')->with([
+                    'message' => 'Payment gateway error. Please verify configuration.',
+                    'alert-type' => 'error',
+                ]);
+            }
+
+            $data = $response->json('data');
+            if (is_array($data)) {
+                $authUrl = $data['authorizationUrl'] ?? $data['authorization_url'] ?? null;
+                if ($authUrl) {
+                    Log::info('Payment initiation succeeded', ['hold_id' => $hold->id, 'reference' => $reference]);
+                    // Use away() to force external redirect
+                    return redirect()->away($authUrl);
+                }
+            }
+
+            Log::error('Credo init missing authorizationUrl', ['response' => $response->json()]);
+            return redirect()->route('document.uploads')->with([
+                'message' => 'Payment gateway took too long to respond.',
+                'alert-type' => 'error',
+            ]);
+        } catch (Exception $e) {
+            Log::error('Payment initiation exception: ' . $e->getMessage());
+            return redirect()->route('document.uploads')->with([
+                'message' => 'Error initializing payment. Please try again.',
+                'alert-type' => 'error',
+            ]);
+        }
+    }
+
     /**Free filing for users */
     // public function user_store_file_document(Request $request)
     // {
@@ -1895,8 +2500,9 @@ class SuperAdminActions extends Controller
             return $this->handleFailedPayment('Document not found.');
         }
 
-        // Update document hold status
-        $document->status = 'Successful';
+        // Update document hold: mark payment_status; keep status semantics at Pending during payment
+        $document->status = 'Pending';
+        $document->payment_status = 'paid';
         $document->save();
 
         // If file_path is a local temp path, upload to Cloudinary now
@@ -1922,72 +2528,132 @@ class SuperAdminActions extends Controller
             // Proceed with existing file_path; user can retry upload later.
         }
 
-        // Create a new document
-        $newDocument = Document::create([
-            'title' => $document->title,
-            'docuent_number' => $document->docuent_number,
-            'file_path' => $finalFileUrl,
-            'uploaded_by' => $document->uploaded_by,
-            'status' => 'pending',
-            'description' => $document->description,
-            // 'metadata' => json_encode($document->metadata),
-        ]);
+        // Idempotent document creation: update existing or create once
+        $newDocument = Document::where('docuent_number', $document->docuent_number)
+            ->where('uploaded_by', $document->uploaded_by)
+            ->first();
 
-        // Log document upload activity
-        Activity::create([
-            'action' => 'You uploaded a document',
-            'user_id' => Auth::id(),
-        ]);
-
-        // Create file movement record
-        $fileMovement = FileMovement::create([
-            'recipient_id' => $document->recipient_id,
-            'sender_id' => Auth::id(),
-            'message' => $document->description,
+        if ($newDocument) {
+            // Update payment status and file path if needed
+            $newDocument->payment_status = 'paid';
+            if ($finalFileUrl && $newDocument->file_path !== $finalFileUrl) {
+                $newDocument->file_path = $finalFileUrl;
+            }
+            // Ensure status is a valid enum and reflects paid-but-not-sent (pending)
+            if (!in_array($newDocument->status, ['pending', 'processing', 'approved', 'rejected', 'kiv', 'completed'])) {
+                $newDocument->status = 'pending';
+            }
+            $newDocument->save();
+        } else {
+            // Create a new document; mark payment_status=paid, send will be a separate step
+            $newDocument = Document::create([
+                'title' => $document->title,
+                'docuent_number' => $document->docuent_number,
+                'file_path' => $finalFileUrl,
+                'uploaded_by' => $document->uploaded_by,
+                'status' => 'pending',
+                'payment_status' => 'paid',
+                'description' => $document->description,
+                // 'metadata' => json_encode($document->metadata),
+            ]);
+        }
+        Log::info('Payment verified; document created and marked Paid', [
             'document_id' => $newDocument->id,
+            'doc_no' => $newDocument->docuent_number,
         ]);
 
-        // Create document recipient record
-        DocumentRecipient::create([
-            'file_movement_id' => $fileMovement->id,
-            'recipient_id' => $document->recipient_id,
-            'user_id' => Auth::id(),
-            'created_at' => now(),
-        ]);
+        // Auto-send the document to the previously selected recipient within a transaction
+        $recipientId = $document->recipient_id;
+        $authUser = Auth::user();
 
-        // Log additional activities
-        Activity::insert([
-            [
-                'action' => 'Sent Document',
-                'user_id' => Auth::id(),
+        try {
+            DB::beginTransaction();
+
+            // Create movement
+            $fileMovement = FileMovement::create([
+                'recipient_id' => $recipientId,
+                'sender_id' => $authUser->id,
+                'message' => $document->description,
+                'document_id' => $newDocument->id,
+            ]);
+
+            // Create recipient link
+            DocumentRecipient::create([
+                'file_movement_id' => $fileMovement->id,
+                'recipient_id' => $recipientId,
+                'user_id' => $authUser->id,
                 'created_at' => now(),
-            ],
-            [
-                'action' => 'Document Received',
-                'user_id' => $document->recipient_id,
-                'created_at' => now(),
-            ],
-        ]);
-        $userOrg = User::with('userDetail.tenant')->where('id', $document->recipient_id)->first();
-        $userDepartment = UserDetails::with('tenant_department')->where('id', $document->recipient_id)->first();
-        $userDepartment = $userDepartment->tenant_department->name ?? null;
-        $userTenant = $userOrg->userDetail->tenant->name ?? null;
+            ]);
 
-        $senderName = Auth::user()->name;
-        $receiverName = User::find($document->recipient_id)->name;
+            // Update document status to reflect sending
+            $newDocument->status = 'processing';
+            $newDocument->save();
+
+            // Record activities
+            Activity::insert([
+                [
+                    'action' => 'Sent Document',
+                    'user_id' => $authUser->id,
+                    'created_at' => now(),
+                ],
+                [
+                    'action' => 'Document Received',
+                    'user_id' => $recipientId,
+                    'created_at' => now(),
+                ],
+            ]);
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Auto-send after payment failed', [
+                'error' => $e->getMessage(),
+                'reference' => $reference,
+                'document_id' => $newDocument->id,
+            ]);
+
+            return redirect()->route('document.uploads')->with([
+                'message' => 'Payment verified, but sending failed. Please try again.',
+                'alert-type' => 'error',
+            ]);
+        }
+
+        // Send notifications AFTER successful commit
+        $senderName = $authUser->name;
+        $receiverName = optional(User::find($recipientId))->name;
         $documentName = $document->title;
         $documentId = $document->docuent_number;
         $appName = config('app.name');
 
         try {
-            Mail::to(Auth::user()->email)->send(new SendNotificationMail($senderName, $receiverName,  $documentName, $appName, $userTenant, $userDepartment));
-            Mail::to(User::find($document->recipient_id)?->email)->send(new ReceiveNotificationMail($senderName, $receiverName, $documentName, $documentId, $appName));
-        } catch (\Exception $e) {
-            Log::error('Failed to send Document notification');
+            Mail::to($authUser->email)->send(new SendNotificationMail(
+                $senderName,
+                $receiverName,
+                $documentName,
+                $appName,
+                $documentId
+            ));
+            $recipientEmail = optional(User::find($recipientId))->email;
+            if ($recipientEmail) {
+                Mail::to($recipientEmail)->send(new ReceiveNotificationMail(
+                    $senderName,
+                    $receiverName,
+                    $documentName,
+                    $documentId,
+                    $appName
+                ));
+            }
+        } catch (Exception $e) {
+            Log::error('Failed to send notification emails after payment commit', [
+                'error' => $e->getMessage(),
+                'reference' => $reference,
+            ]);
         }
 
-        // Redirect with success notification
-        return $this->redirectWithNotification('Document uploaded and sent successfully.', 'success');
+        return redirect()->route('document.uploads')->with([
+            'message' => 'Payment successful. Document sent to recipient.',
+            'alert-type' => 'success',
+        ]);
     }
 
     // /**
@@ -1995,7 +2661,12 @@ class SuperAdminActions extends Controller
     //  */
     protected function handleFailedPayment($message)
     {
-        return $this->redirectWithNotification($message, 'error');
+        // Redirect back to uploads view so user can retry payment
+        $notification = [
+            'message' => $message,
+            'alert-type' => 'error',
+        ];
+        return redirect()->route('document.uploads')->with($notification);
     }
 
     /**
@@ -2009,6 +2680,86 @@ class SuperAdminActions extends Controller
         ];
 
         return redirect()->route('document.index')->with($notification);
+    }
+
+    /**
+     * Send a previously paid document to the recipient selected earlier.
+     * Creates movement and recipient records, marks document as Sent.
+     */
+    public function sendUploadedDocument(Request $request, Document $document)
+    {
+        $authUser = Auth::user();
+        if ($document->uploaded_by !== $authUser->id) {
+            return redirect()->route('document.uploads')->with([
+                'message' => 'Unauthorized action.',
+                'alert-type' => 'error',
+            ]);
+        }
+        // Prevent duplicate sends
+        if ($document->status === 'processing') {
+            return redirect()->route('document.uploads')->with([
+                'message' => 'Document already sent.',
+                'alert-type' => 'info',
+            ]);
+        }
+        // Require verified payment before sending
+        if (strtolower($document->payment_status ?? '') !== 'paid') {
+            return redirect()->route('document.uploads')->with([
+                'message' => 'Document must be paid before sending.',
+                'alert-type' => 'error',
+            ]);
+        }
+
+        // Find corresponding hold to retrieve the selected recipient
+        $hold = DocumentHold::where('docuent_number', $document->docuent_number)->orderByDesc('id')->first();
+        $recipientId = optional($hold)->recipient_id;
+        if (!$recipientId) {
+            return redirect()->route('document.uploads')->with([
+                'message' => 'Recipient not found for this document.',
+                'alert-type' => 'error',
+            ]);
+        }
+
+        try {
+            DB::transaction(function () use ($document, $recipientId, $authUser) {
+                // Create movement
+                $fileMovement = FileMovement::create([
+                    'recipient_id' => $recipientId,
+                    'sender_id' => $authUser->id,
+                    'message' => $document->description,
+                    'document_id' => $document->id,
+                ]);
+
+                // Create recipient link
+                DocumentRecipient::create([
+                    'file_movement_id' => $fileMovement->id,
+                    'recipient_id' => $recipientId,
+                    'user_id' => $authUser->id,
+                    'created_at' => now(),
+                ]);
+
+                // Mark as sent: update status to processing per new lifecycle
+                $document->status = 'processing';
+                $document->save();
+
+                Log::info('Document sent', [
+                    'document_id' => $document->id,
+                    'recipient_id' => $recipientId,
+                ]);
+            });
+        } catch (Exception $e) {
+            Log::error('Send document failed: ' . $e->getMessage());
+            return redirect()->route('document.uploads')->with([
+                'message' => 'Failed to send document. Please try again.',
+                'alert-type' => 'error',
+            ]);
+        }
+
+        // Redirect to document view with success
+        return redirect()->route('document.myview', $document)->with([
+            'message' => 'Document sent successfully.',
+            'alert-type' => 'success',
+        ]);
     }
 
     public function myDocument_show(Document $document)
@@ -2041,6 +2792,13 @@ class SuperAdminActions extends Controller
         $tenantId = $authUser->userDetail->tenant_id ?? null;
         $userdetails = UserDetails::where('user_id', $authUser->id)->first();
         $userTenant = Tenant::where('id', $userdetails->tenant_id)->first();
+        $fmHead = FileMovement::find($received);
+        if ($fmHead && $fmHead->recipient_id === $authUser->id) {
+            Activity::create([
+                'action' => 'Viewed Document',
+                'user_id' => $authUser->id,
+            ]);
+        }
         if (Auth::user()->default_role === 'superadmin') {
             $document_received =  FileMovement::with(['sender', 'recipient', 'document'])->where('id', $received)->first();
             
@@ -2112,7 +2870,6 @@ class SuperAdminActions extends Controller
 
     public function document_store(Request $request)
     {
-
         $data = $request;
         $result = DocumentStorage::storeDocument($data);
 
@@ -2121,10 +2878,63 @@ class SuperAdminActions extends Controller
                 ->withErrors($result['errors'])
                 ->withInput();
         }
-        $notification = array(
+
+        // If recipients were selected in the Doc Mgt flow, auto-send the document
+        $recipients = [];
+        if ($request->filled('metadata')) {
+            try {
+                $meta = json_decode($request->input('metadata'), true);
+                if (is_array($meta) && isset($meta['recipients']) && is_array($meta['recipients'])) {
+                    $recipients = array_filter($meta['recipients'], fn($id) => is_int($id) || ctype_digit((string)$id));
+                }
+            } catch (\Throwable $e) {
+                // Ignore malformed metadata and proceed with normal flow
+            }
+        }
+
+        if (!empty($recipients)) {
+            // Ensure we have a document ID from the upload result; if not, resolve latest by user
+            $documentId = $result['document_id'] ?? null;
+            if (!$documentId) {
+                $latest = \App\Models\Document::where('uploaded_by', Auth::id())->orderBy('id', 'desc')->first();
+                $documentId = $latest?->id;
+            }
+
+            if ($documentId) {
+                // Merge into request and perform send via existing helper
+                $request->merge([
+                    'recipient_id' => $recipients,
+                    'document_id' => $documentId,
+                ]);
+
+                $sendResult = DocumentStorage::sendDocument($request);
+                if ($sendResult['status'] === 'error') {
+                    return redirect()->back()
+                        ->withErrors($sendResult['errors'])
+                        ->withInput();
+                }
+
+                try {
+                    // Trigger notifications for sender and each recipient
+                    \App\Helpers\SendMailHelper::sendNotificationMail($request, $request);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send notification email: ' . $e->getMessage());
+                }
+
+                $notification = [
+                    'message' => 'Document uploaded and sent successfully',
+                    'alert-type' => 'success',
+                ];
+                // Keep user in Doc Mgt flow
+                return redirect()->route('admin.docmgt')->with($notification);
+            }
+        }
+
+        // Default behavior when no recipients selected
+        $notification = [
             'message' => 'Document uploaded successfully',
-            'alert-type' => 'success'
-        );
+            'alert-type' => 'success',
+        ];
         return redirect()->route('document.index')->with($notification);
     }
 
