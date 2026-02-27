@@ -44,7 +44,7 @@
 
                         </div>
 
-                        <form method="POST" action="{{ route('document.storefile') }}" enctype="multipart/form-data">
+                        <form method="POST" action="{{ route('document.upload') }}" enctype="multipart/form-data">
                             @csrf
                             <div class="row">
                                 <div class="col-sm-12 col-xl-6 mb-3">
@@ -66,7 +66,7 @@
                                 <div class="col-sm-12 col-xl-6 mb-3">
                                     <label for="exampleInputEmail1" class="form-label">Document Number</label>
                                     <input type="text" name="document_number" class="form-control"
-                                        value="{{ 'BN/doc/' . rand(0, 9999) . date('YmdHis') }}"
+                                        value="{{ 'EDMS/' . substr(Str::uuid(), 0, 6) . date('ymd') }}"
                                         placeholder="document number" readonly>
                                     <input type="text" name="uploaded_by" class="form-control"
                                         value="{{ Auth::user()->id }}" placeholder="document number" hidden>

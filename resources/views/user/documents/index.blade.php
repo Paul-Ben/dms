@@ -79,7 +79,7 @@
                     { data: 'status', name: 'documents.status' },
                     { data: 'action', name: 'action', orderable: false, searchable: false },
                 ],
-                order: [[0, 'asc']],
+                order: [[0, 'desc']],
                 language: {
                     searchPlaceholder: "Search here...",
                     zeroRecords: "No matching records found",
