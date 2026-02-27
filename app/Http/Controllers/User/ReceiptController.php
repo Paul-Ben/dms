@@ -43,7 +43,13 @@ class ReceiptController extends Controller
         $orderDir = in_array(strtolower($orderDir), ['asc', 'desc']) ? $orderDir : 'desc';
 
         $baseQuery = Payment::query()
-            ->where('customerId', $user->id);
+            ->where('customerId', $user->id)
+            ->whereIn('id', function($query) use ($user) {
+                $query->select(DB::raw('MAX(id)'))
+                    ->from('payments')
+                    ->where('customerId', $user->id)
+                    ->groupBy('document_no');
+            });
 
         $recordsTotal = (clone $baseQuery)->count();
 
