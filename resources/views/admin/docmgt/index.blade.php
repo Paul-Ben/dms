@@ -56,6 +56,11 @@
             <div class="p-4 text-center text-muted">No members found for your tenant.</div>
           @endforelse
         </div>
+        @if($users instanceof \Illuminate\Pagination\LengthAwarePaginator)
+          <div class="card-footer d-flex justify-content-center">
+            {{ $users->links('pagination::bootstrap-5') }}
+          </div>
+        @endif
       </div>
     </div>
     <!-- Flyout Panel -->
