@@ -34,19 +34,23 @@ class LogVisitorActivity
             }
         });
 
-        VisitorActivity::create([
-            'user_id' => Auth::id(),
-            'ip_address' => $ip,
-            'country' => $location['country'] ?? null,
-            'region' => $location['regionName'] ?? null,
-            'city' => $location['city'] ?? null,
-            'browser' => $browser,
-            'device' => $device,
-            // Avoid overly long URLs (e.g., large query strings from DataTables)
-            'url' => Str::limit($request->url(), 255),
-            'method' => $request->method(),
-            'user_agent' => $userAgent,
-        ]);
+        try {
+            VisitorActivity::create([
+                'user_id' => Auth::id(),
+                'ip_address' => $ip,
+                'country' => $location['country'] ?? null,
+                'region' => $location['regionName'] ?? null,
+                'city' => $location['city'] ?? null,
+                'browser' => $browser,
+                'device' => $device,
+                // Avoid overly long URLs (e.g., large query strings from DataTables)
+                'url' => Str::limit($request->url(), 255),
+                'method' => $request->method(),
+                'user_agent' => $userAgent,
+            ]);
+        } catch (\Throwable $e) {
+            // Silently fail if logging activity fails (e.g. DB connection issue)
+        }
         return $next($request);
     }
     private function getBrowser($userAgent)
