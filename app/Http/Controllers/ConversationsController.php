@@ -89,6 +89,15 @@ class ConversationsController extends Controller
             })
             ->values();
 
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json([
+                'data' => $members,
+                'meta' => [
+                    'tenant_id' => $tenantId,
+                ],
+            ]);
+        }
+
         return view('conversations.index', compact('members', 'authUser', 'userTenant'));
     }
 
