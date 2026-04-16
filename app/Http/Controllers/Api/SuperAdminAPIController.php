@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\CloudinaryHelper;
 use App\Helpers\DocumentStorage;
 use App\Helpers\FileService;
 use App\Helpers\SendMailHelper;
@@ -12,6 +13,7 @@ use App\Models\Designation;
 use App\Models\Document;
 use App\Models\DocumentRecipient;
 use App\Models\FileMovement;
+use App\Models\FileCharge;
 use App\Models\Tenant;
 use App\Models\TenantDepartment;
 use App\Models\User;
@@ -34,14 +36,18 @@ use App\Models\DocumentHold;
 use App\Models\Memo;
 use App\Models\MemoTemplate;
 use App\Models\Payment;
+use Carbon\Carbon;
 use Exception;
 use setasign\Fpdi\Fpdi;
+use Illuminate\Support\Facades\DB;
 
 class SuperAdminAPIController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('auth:sanctum');
+        $this->middleware('auth:sanctum')->except([
+            'handleETranzactCallback',
+        ]);
     }
 
     // User Management Endpoints
@@ -174,6 +180,45 @@ class SuperAdminAPIController extends Controller
             Log::error('Error while fetching user details: ' . $e->getMessage());
             return response()->json(['error' => 'Error while fetching user details'], 500);
         }
+    }
+
+    public function userShow(Request $request, User $user)
+    {
+        $authUser = Auth::user();
+        if (!in_array($authUser->default_role, ['superadmin', 'Admin', 'IT Admin'], true)) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $user->load(['userDetail', 'roles']);
+
+        return response()->json([
+            'user' => $user,
+        ], 200);
+    }
+
+    public function userVerify(User $user)
+    {
+        $authUser = Auth::user();
+        if (!in_array($authUser->default_role, ['superadmin', 'IT Admin'], true)) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        if (!is_null($user->email_verified_at)) {
+            return response()->json([
+                'message' => 'User is already verified',
+            ], 200);
+        }
+
+        $user->update(['email_verified_at' => now()]);
+
+        Activity::create([
+            'action' => 'User Verified',
+            'user_id' => $authUser->id,
+        ]);
+
+        return response()->json([
+            'message' => 'User account verified successfully',
+        ], 200);
     }
 
     public function userUpdate(Request $request, User $user)
@@ -1736,6 +1781,335 @@ class SuperAdminAPIController extends Controller
         return response()->json([
             'organisation' => $organisation,
             'departments' => $departments
+        ], 200);
+    }
+
+    public function uploadDocument(Request $request)
+    {
+        $authUser = Auth::user();
+        if (!$authUser || $authUser->default_role !== 'User') {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'document_number' => 'required|string|max:255',
+            'file_path' => 'required|mimes:pdf|max:10240',
+            'description' => 'nullable|string',
+            'recipient_id' => 'required|exists:users,id',
+            'metadata' => 'nullable',
+        ]);
+
+        $file = $request->file('file_path');
+        $fpdi = new Fpdi();
+        $pageCount = $fpdi->setSourceFile($file->getPathname());
+        $fileCharge = FileCharge::where('status', 'active')->first();
+        $amount = $pageCount * ((int) optional($fileCharge)->file_charge ?: 0);
+
+        $uploader = new CloudinaryHelper();
+        $tenantId = optional($authUser->userDetail)->tenant_id;
+        $folder = 'edms_documents/' . ($tenantId ?? 'tenant') . '/' . $authUser->id;
+        $uploadResult = $uploader->upload($file, $folder);
+
+        $cloudUrl = null;
+        if (is_array($uploadResult)) {
+            $cloudUrl = $uploadResult['secure_url'] ?? null;
+        } elseif ($uploadResult instanceof \ArrayAccess) {
+            $cloudUrl = $uploadResult['secure_url'] ?? null;
+        } elseif (is_object($uploadResult) && method_exists($uploadResult, 'jsonSerialize')) {
+            $serialized = $uploadResult->jsonSerialize();
+            $cloudUrl = is_array($serialized) ? ($serialized['secure_url'] ?? null) : null;
+        }
+
+        if (!$cloudUrl) {
+            Log::error('Cloudinary upload returned unexpected result', ['result' => $uploadResult]);
+            return response()->json(['error' => 'File upload failed. Please try again.'], 500);
+        }
+
+        $reference = Str::random(12);
+        $meta = [
+            'page_count' => $pageCount,
+        ];
+        if (!empty($validated['metadata'])) {
+            $incoming = is_array($validated['metadata']) ? $validated['metadata'] : json_decode($validated['metadata'], true);
+            if (is_array($incoming)) {
+                $meta = array_merge($incoming, $meta);
+            }
+        }
+
+        $hold = DocumentHold::create([
+            'title' => $validated['title'],
+            'docuent_number' => $validated['document_number'],
+            'file_path' => $cloudUrl,
+            'uploaded_by' => $authUser->id,
+            'status' => 'Pending',
+            'payment_status' => 'Unpaid',
+            'description' => $validated['description'] ?? null,
+            'reference' => $reference,
+            'amount' => $amount,
+            'recipient_id' => $validated['recipient_id'],
+            'metadata' => json_encode($meta),
+        ]);
+
+        return response()->json([
+            'message' => 'Document uploaded. Proceed to payment when ready.',
+            'data' => $hold,
+            'meta' => [
+                'payment_amount' => $amount,
+                'pay_endpoint' => route('api.dashboard.document.uploads.pay', ['hold' => $hold->id]),
+            ],
+        ], 201);
+    }
+
+    public function listUploadedDocuments()
+    {
+        $authUser = Auth::user();
+
+        $holds = DocumentHold::where('uploaded_by', $authUser->id)
+            ->where(function ($q) {
+                $q->whereNull('payment_status')
+                    ->orWhereRaw('LOWER(payment_status) != ?', ['paid']);
+            })
+            ->orderByDesc('id')
+            ->paginate(10);
+
+        $documents = Document::where('uploaded_by', $authUser->id)
+            ->whereRaw('LOWER(COALESCE(payment_status, "")) = ?', ['paid'])
+            ->orderByDesc('id')
+            ->paginate(10);
+
+        return response()->json([
+            'data' => [
+                'holds' => $holds,
+                'paid_documents' => $documents,
+            ],
+        ], 200);
+    }
+
+    public function initiatePayment(Request $request, DocumentHold $hold)
+    {
+        $authUser = Auth::user();
+        if ($hold->uploaded_by !== $authUser->id) {
+            return response()->json(['error' => 'Unauthorized payment initiation'], 403);
+        }
+
+        if (strtolower((string) ($hold->payment_status ?? '')) === 'paid') {
+            return response()->json(['message' => 'This document is already paid'], 200);
+        }
+
+        $reference = $hold->reference ?: Str::random(12);
+        if (!$hold->reference) {
+            $hold->reference = $reference;
+            $hold->save();
+        }
+
+        $response = Http::accept('application/json')->withHeaders([
+            'authorization' => env('CREDO_PUBLIC_KEY'),
+            'content_type' => 'Content-Type: application/json',
+        ])->post(env('CREDO_URL') . '/transaction/initialize', [
+            'email' => $authUser->email,
+            'amount' => (((float) $hold->amount) * 100),
+            'reference' => $reference,
+            'callbackUrl' => route('api.dashboard.etranzact.callback'),
+            'bearer' => 0,
+        ]);
+
+        $responseData = $response->collect('data');
+        $authorizationUrl = $responseData['authorizationUrl'] ?? null;
+
+        if (!$authorizationUrl) {
+            return response()->json([
+                'error' => 'Credo E-Tranzact gateway service took too long to respond.',
+            ], 500);
+        }
+
+        return response()->json([
+            'data' => [
+                'reference' => $reference,
+                'authorization_url' => $authorizationUrl,
+            ],
+        ], 200);
+    }
+
+    public function sendUploadedDocument(Request $request, Document $document)
+    {
+        $authUser = Auth::user();
+        if ($document->uploaded_by !== $authUser->id) {
+            return response()->json(['error' => 'Unauthorized action'], 403);
+        }
+
+        if ($document->status === 'processing') {
+            return response()->json(['message' => 'Document already sent'], 200);
+        }
+
+        if (strtolower((string) $document->payment_status) !== 'paid') {
+            return response()->json(['error' => 'Document must be paid before sending'], 422);
+        }
+
+        $hold = DocumentHold::where('docuent_number', $document->docuent_number)->orderByDesc('id')->first();
+        $recipientId = optional($hold)->recipient_id;
+        if (!$recipientId) {
+            return response()->json(['error' => 'Recipient not found for this document'], 422);
+        }
+
+        DB::transaction(function () use ($document, $recipientId, $authUser) {
+            $fileMovement = FileMovement::create([
+                'recipient_id' => $recipientId,
+                'sender_id' => $authUser->id,
+                'message' => $document->description,
+                'document_id' => $document->id,
+            ]);
+
+            DocumentRecipient::create([
+                'file_movement_id' => $fileMovement->id,
+                'recipient_id' => $recipientId,
+                'user_id' => $authUser->id,
+                'created_at' => now(),
+            ]);
+
+            $document->status = 'processing';
+            $document->save();
+        });
+
+        return response()->json(['message' => 'Document sent successfully'], 200);
+    }
+
+    public function receiptIndex()
+    {
+        $authUser = Auth::user();
+        if ($authUser->default_role !== 'User') {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $receipts = Payment::where('customerId', $authUser->id)
+            ->orderByDesc('id')
+            ->paginate(10);
+
+        return response()->json(['data' => $receipts], 200);
+    }
+
+    public function showReceipt($receipt)
+    {
+        $authUser = Auth::user();
+        if ($authUser->default_role !== 'User') {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $payment = Payment::where('id', $receipt)
+            ->where('customerId', $authUser->id)
+            ->first();
+
+        if (!$payment) {
+            return response()->json(['error' => 'Receipt not found'], 404);
+        }
+
+        return response()->json(['data' => $payment], 200);
+    }
+
+    public function tenantUsage(Request $request)
+    {
+        $authUser = Auth::user();
+        if ($authUser->default_role !== 'superadmin') {
+            return response()->json(['error' => 'Unauthorized: Superadmin only'], 403);
+        }
+
+        $validated = $request->validate([
+            'tenant_id' => 'nullable|exists:tenants,id',
+            'from' => 'nullable|date',
+            'to' => 'nullable|date',
+        ]);
+
+        $selectedTenantId = $validated['tenant_id'] ?? null;
+        $from = !empty($validated['from']) ? Carbon::parse($validated['from'])->startOfDay() : Carbon::now()->subDays(30)->startOfDay();
+        $to = !empty($validated['to']) ? Carbon::parse($validated['to'])->endOfDay() : Carbon::now()->endOfDay();
+
+        $payload = [
+            'tenants' => Tenant::orderBy('name')->get(['id', 'name']),
+            'selected_tenant_id' => $selectedTenantId,
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'user_count' => 0,
+            'totals' => ['sent' => 0, 'received' => 0],
+            'daily_series' => ['labels' => [], 'sent' => [], 'received' => []],
+            'monthly_series' => ['labels' => [], 'sent' => [], 'received' => []],
+            'recent' => [],
+        ];
+
+        if ($selectedTenantId) {
+            $tenantUserIds = UserDetails::where('tenant_id', $selectedTenantId)->pluck('user_id');
+            $payload['user_count'] = $tenantUserIds->count();
+            $payload['totals']['sent'] = DB::table('file_movements')->whereIn('sender_id', $tenantUserIds)->whereBetween('created_at', [$from, $to])->count();
+            $payload['totals']['received'] = DB::table('file_movements')->whereIn('recipient_id', $tenantUserIds)->whereBetween('created_at', [$from, $to])->count();
+            $payload['recent'] = FileMovement::with(['document:id,title', 'sender:id,name', 'recipient:id,name'])
+                ->where(function ($q) use ($tenantUserIds) {
+                    $q->whereIn('sender_id', $tenantUserIds)->orWhereIn('recipient_id', $tenantUserIds);
+                })
+                ->whereBetween('created_at', [$from, $to])
+                ->orderByDesc('created_at')
+                ->limit(50)
+                ->get();
+        }
+
+        return response()->json(['data' => $payload], 200);
+    }
+
+    public function tenantUsageExport(Request $request)
+    {
+        $authUser = Auth::user();
+        if ($authUser->default_role !== 'superadmin') {
+            return response()->json(['error' => 'Unauthorized: Superadmin only'], 403);
+        }
+
+        $validated = $request->validate([
+            'tenant_id' => 'required|exists:tenants,id',
+            'from' => 'required|date',
+            'to' => 'required|date',
+        ]);
+
+        $tenantId = (int) $validated['tenant_id'];
+        $from = Carbon::parse($validated['from'])->startOfDay();
+        $to = Carbon::parse($validated['to'])->endOfDay();
+        if ($from->gt($to)) {
+            return response()->json(['error' => 'Invalid date range: From must be before To'], 422);
+        }
+
+        $tenantUserIds = UserDetails::where('tenant_id', $tenantId)->pluck('user_id');
+        $dailySent = DB::table('file_movements')
+            ->selectRaw('DATE(created_at) as day, COUNT(*) as cnt')
+            ->whereIn('sender_id', $tenantUserIds)
+            ->whereBetween('created_at', [$from, $to])
+            ->groupBy('day')
+            ->orderBy('day')
+            ->get()
+            ->keyBy('day');
+        $dailyReceived = DB::table('file_movements')
+            ->selectRaw('DATE(created_at) as day, COUNT(*) as cnt')
+            ->whereIn('recipient_id', $tenantUserIds)
+            ->whereBetween('created_at', [$from, $to])
+            ->groupBy('day')
+            ->orderBy('day')
+            ->get()
+            ->keyBy('day');
+
+        $rows = [];
+        $cursor = $from->copy();
+        while ($cursor->lte($to)) {
+            $day = $cursor->toDateString();
+            $rows[] = [
+                'date' => $day,
+                'sent' => (int) (optional($dailySent->get($day))->cnt ?? 0),
+                'received' => (int) (optional($dailyReceived->get($day))->cnt ?? 0),
+            ];
+            $cursor->addDay();
+        }
+
+        return response()->json([
+            'data' => [
+                'tenant_id' => $tenantId,
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+                'rows' => $rows,
+            ],
         ], 200);
     }
 }
